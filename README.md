@@ -38,8 +38,7 @@ TRY IT HERE >> Https://SYN-Tracker.online <<<
   - Custom ADSR envelopes, LFO modulators, wavetables, and macros.
   - Built-in sample editor with trim, normalize, reverse, pitch tuning, and loop-point tools.
     
-
-  <img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 32" src="https://github.com/user-attachments/assets/bc4205ce-58a9-4d8d-9767-e9a89fb27945" />
+<img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 32" src="https://github.com/user-attachments/assets/bc4205ce-58a9-4d8d-9767-e9a89fb27945" />
 
 
 - 🎥 **Visualizer Studio & Video Export:**
@@ -54,7 +53,7 @@ TRY IT HERE >> Https://SYN-Tracker.online <<<
   - Create pixel-perfect physical media art for your releases (3.5" Floppy Disk, Cassette Tape, and CD Jewel Case mockups).
     
 
-  <img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 50" src="https://github.com/user-attachments/assets/d33564f6-b55b-4fab-96b3-239491e3fc65" />
+<img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 50" src="https://github.com/user-attachments/assets/d33564f6-b55b-4fab-96b3-239491e3fc65" />
 
 
 - 💾 **Comprehensive Export & Import Options:**
