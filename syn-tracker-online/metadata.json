@@ -1,0 +1,6 @@
+{
+  "name": "SYN-Tracker",
+  "description": "A retro sound and DAW music tracker studio featuring vintage sound chips (C64 SID, Game Boy DMG, NES 2A03, Mega Drive, Amiga Paula with 115 ST floppy disks and 10,547+ instruments), multi-channel sequencing, SYN-Editor waveform sampler, 3D Demoscene Visualizer Studio, and release Cover Designer with MP3 ID3 baking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
