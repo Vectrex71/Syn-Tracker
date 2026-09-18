@@ -52,6 +52,7 @@ TRY IT HERE >> Https://SYN-Tracker.online <<<
 
 - 🎨 **Retro Cover Designer:**
   - Create pixel-perfect physical media art for your releases (3.5" Floppy Disk, Cassette Tape, and CD Jewel Case mockups).
+    
 
   <img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 50" src="https://github.com/user-attachments/assets/d33564f6-b55b-4fab-96b3-239491e3fc65" />
 
