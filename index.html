@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SYN-Tracker</title>
+    <meta name="description" content="A retro sound and DAW music tracker studio featuring vintage sound chips (C64 SID, Game Boy DMG, NES 2A03, Mega Drive, Amiga Paula with 115 ST floppy disks and 10,547+ instruments), multi-channel sequencing, SYN-Editor waveform sampler, 3D Demoscene Visualizer Studio, and release Cover Designer with MP3 ID3 baking." />
+    <meta property="og:title" content="SYN-Tracker" />
+    <meta property="og:description" content="A retro sound and DAW music tracker studio featuring vintage sound chips, multi-channel sequencing, waveform sampler, and 3D Demoscene Visualizer Studio." />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SYN-Tracker" />
+    <meta name="application-name" content="SYN-Tracker" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0b0f17" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Cinzel:wght@700;900&family=Inter:wght@700;900&family=Monoton&family=Orbitron:wght@700;900&family=Permanent+Marker&family=Press+Start+2P&family=Righteous&family=Rubik+Glitch&family=Space+Mono:wght@700&family=Syne:wght@700;800&family=VT323&display=swap" rel="stylesheet" />
+  </head>
+  <body style="background-color: #080c11; color: #cbd5e1; margin: 0; padding: 0; min-height: 100vh;">
+    <script>
+      // Immediately unregister any stale Service Workers and clear caches
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (var i = 0; i < registrations.length; i++) {
+              registrations[i].unregister();
+            }
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            for (var i = 0; i < names.length; i++) {
+              caches.delete(names[i]);
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('SW cleanup warning:', e);
+      }
+    </script>
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #080c11; color: #94a3b8; font-family: monospace; gap: 14px;">
+        <div style="width: 38px; height: 38px; border: 3px solid #1e293b; border-top-color: #38bdf8; border-radius: 50%; animation: syntracker_spin 0.8s linear infinite;"></div>
+        <div style="font-size: 12px; font-weight: bold; letter-spacing: 0.1em; color: #38bdf8;">SYN-TRACKER ONLINE</div>
+        <div style="font-size: 10px; color: #64748b;">Loading Web Audio Chiptune Workstation...</div>
+        <style>@keyframes syntracker_spin { to { transform: rotate(360deg); } }</style>
+      </div>
+    </div>
+    <script>
+      // Startup watchdog: If workstation takes > 4.5s to mount, display a recovery button
+      (function() {
+        var timer = setTimeout(function() {
+          var root = document.getElementById('root');
+          if (root && root.innerText && root.innerText.indexOf('Loading Web Audio') !== -1) {
+            var box = document.createElement('div');
+            box.style.marginTop = '16px';
+            box.style.display = 'flex';
+            box.style.flexDirection = 'column';
+            box.style.alignItems = 'center';
+            box.style.gap = '8px';
+            box.innerHTML = '<div style="font-size:11px;color:#f59e0b;">Start dauert ungewohnt lange...</div>' +
+              '<div style="display:flex;gap:8px;">' +
+              '<button onclick="window.location.reload()" style="background:#0284c7;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;font-family:monospace;font-weight:bold;">Neu laden</button>' +
+              '<button onclick="try{localStorage.clear();sessionStorage.clear();}catch(e){}window.location.reload();" style="background:#334155;color:#e2e8f0;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:monospace;">Cache leeren &amp; neu laden</button>' +
+              '</div>';
+            if (root.firstElementChild) {
+              root.firstElementChild.appendChild(box);
+            }
+          }
+        }, 4500);
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

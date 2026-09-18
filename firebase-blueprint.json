@@ -1,0 +1,120 @@
+// Firebase Blueprint for SYN-Tracker
+// Manages User Profiles, Musician Hub portfolios, and Published Tracks
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Musician profile, portfolio bio, avatar, and supporter badge tier",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user identifier from Firebase Auth" },
+        "email": { "type": "string", "description": "Musician contact email" },
+        "username": { "type": "string", "description": "Unique URL-friendly username handle (e.g. captain_retro)" },
+        "displayName": { "type": "string", "description": "Public artist or tracker handle display name" },
+        "bio": { "type": "string", "description": "Short artist biography and background story" },
+        "avatarUrl": { "type": "string", "description": "Custom avatar or pixel art icon URL / data URL" },
+        "customHeaderColor": { "type": "string", "description": "Custom CSS gradient or theme accent for the musician portfolio" },
+        "isSupporter": { "type": "boolean", "description": "Gold VIP Backer badge status" },
+        "supporterTier": { "type": "string", "description": "Supporter level, e.g. 'monthly', 'yearly', 'lifetime', 'supporter', 'vip', 'vip_backer'" },
+        "supporterSince": { "type": "string", "description": "ISO date string when support was activated" },
+        "freeProExportsUsed": { "type": "number", "description": "Number of free Pro exports used (0 to 3 grace skips, 4th at 720p, 5th at 480p, 6+ blocked without Pro)" },
+        "website": { "type": "string", "description": "External website, Bandcamp or SoundCloud link" },
+        "youtubeChannel": { "type": "string", "description": "Musician's personal YouTube channel URL" },
+        "createdAt": { "type": "string", "description": "Account registration timestamp" },
+        "updatedAt": { "type": "string", "description": "Last profile update timestamp" }
+      },
+      "required": ["uid", "username", "displayName"]
+    },
+    "PublishedTrack": {
+      "title": "PublishedTrack",
+      "description": "A track published by a musician to their portfolio with retro system metadata and optional YouTube visualizer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique published track identifier" },
+        "authorUid": { "type": "string", "description": "Author Firebase Auth UID" },
+        "authorUsername": { "type": "string", "description": "Author username handle for portfolio routing" },
+        "authorName": { "type": "string", "description": "Display name of the author at publication time" },
+        "authorIsSupporter": { "type": "boolean", "description": "Denormalized VIP status for feed performance" },
+        "title": { "type": "string", "description": "Track title" },
+        "system": { "type": "string", "description": "Target retro system: 'amiga', 'c64', 'gameboy', 'megadrive', 'nes', or 'trk'" },
+        "systemName": { "type": "string", "description": "Human-readable retro system name" },
+        "description": { "type": "string", "description": "Track notes, story, or description" },
+        "bpm": { "type": "number", "description": "Beats per minute" },
+        "speed": { "type": "number", "description": "Tracker speed (ticks per line)" },
+        "channelsCount": { "type": "number", "description": "Number of channels (3, 4, 8, 16)" },
+        "format": { "type": "string", "description": "Track format: 'mod', 'sid', 'trk', 'prg', 'json'" },
+        "youtubeUrl": { "type": "string", "description": "Optional YouTube visualizer video link" },
+        "youtubeVideoId": { "type": "string", "description": "Parsed YouTube 11-char video ID for embed" },
+        "albumTitle": { "type": "string", "description": "Title of the album or EP collection this track belongs to" },
+        "albumCover": { "type": "string", "description": "Cover art image data or URL for the album" },
+        "trackNumber": { "type": "number", "description": "Track sequence number within the album" },
+        "coverArt": { "type": "string", "description": "Optional individual track cover art image data or URL" },
+        "songDataJson": { "type": "string", "description": "Serialized lightweight tracker song JSON for instant in-browser web playback" },
+        "playCount": { "type": "number", "description": "Number of times played in the portfolio/hub" },
+        "upvotes": { "type": "number", "description": "Number of community upvotes" },
+        "downvotes": { "type": "number", "description": "Number of community downvotes" },
+        "score": { "type": "number", "description": "Net community score (upvotes minus downvotes)" },
+        "likesCount": { "type": "number", "description": "Community appreciation count" },
+        "commentCount": { "type": "number", "description": "Total community comments on this track" },
+        "isPublic": { "type": "boolean", "description": "Whether visible publicly in portfolio and community feed" },
+        "createdAt": { "type": "string", "description": "ISO publication date" }
+      },
+      "required": ["id", "authorUid", "authorUsername", "title", "system", "format"]
+    },
+    "TrackComment": {
+      "title": "TrackComment",
+      "description": "A community comment or feedback message on a published track",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique comment identifier" },
+        "trackId": { "type": "string", "description": "Parent track identifier" },
+        "authorUid": { "type": "string", "description": "Author Firebase Auth UID" },
+        "authorUsername": { "type": "string", "description": "Author username handle" },
+        "authorName": { "type": "string", "description": "Display name of the commenter" },
+        "authorAvatarUrl": { "type": "string", "description": "Commenter avatar URL" },
+        "authorIsSupporter": { "type": "boolean", "description": "Whether commenter has supporter badge" },
+        "authorSupporterTier": { "type": "string", "description": "Supporter level" },
+        "content": { "type": "string", "description": "Comment message content" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of comment" }
+      },
+      "required": ["id", "trackId", "authorUid", "authorUsername", "authorName", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document indexed by Auth UID"
+    },
+    "/usernames/{username}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "uid": { "type": "string" },
+          "createdAt": { "type": "string" }
+        },
+        "required": ["uid"]
+      },
+      "description": "Username uniqueness lookup registry"
+    },
+    "/tracks/{trackId}": {
+      "schema": "PublishedTrack",
+      "description": "Publicly published musician tracks"
+    },
+    "/tracks/{trackId}/votes/{userId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "vote": { "type": "string", "enum": ["up", "down"] },
+          "userId": { "type": "string" },
+          "updatedAt": { "type": "string" }
+        },
+        "required": ["vote", "userId"]
+      },
+      "description": "Track voting record per user"
+    },
+    "/tracks/{trackId}/comments/{commentId}": {
+      "schema": "TrackComment",
+      "description": "Comments and feedback thread for the track"
+    }
+  }
+}
