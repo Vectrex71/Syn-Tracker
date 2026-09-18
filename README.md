@@ -13,6 +13,8 @@
 
 TRY IT HERE >> Https://SYN-Tracker.online <<<
 
+<img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 12" src="https://github.com/user-attachments/assets/f9db38f2-6de2-4a98-b45f-868233db2d2c" />
+
 ---
 
 ## ✨ Features
@@ -25,6 +27,8 @@ TRY IT HERE >> Https://SYN-Tracker.online <<<
   - **Commodore Amiga (Paula 8364):** 4-channel 8-bit PCM sampler with hardware interpolation and Amiga audio filters.
   - **Arcade / ZX Spectrum (AY-3-8910 / YM2149) & Atari (POKEY):** Authentic square-wave and poly-noise generators.
 
+<img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 24" src="https://github.com/user-attachments/assets/1b1e36b8-92f7-45d7-956e-69c6d75da653" />
+
 - 🎼 **Professional Tracker Sequencer:**
   - Classic pattern editor with customizable highlight intervals, order list, and per-channel solo/mute.
   - Full tracker effect command set (Arpeggio, Portamento, Vibrato, Filter Cutoff, Retrigger, Volume Slides, Sample Offset).
@@ -33,14 +37,24 @@ TRY IT HERE >> Https://SYN-Tracker.online <<<
 - 🎚️ **Integrated Synth & Instrument Editor:**
   - Custom ADSR envelopes, LFO modulators, wavetables, and macros.
   - Built-in sample editor with trim, normalize, reverse, pitch tuning, and loop-point tools.
+    
+
+  <img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 32" src="https://github.com/user-attachments/assets/bc4205ce-58a9-4d8d-9767-e9a89fb27945" />
+
 
 - 🎥 **Visualizer Studio & Video Export:**
   - Generate retro-styled music videos for your tracks directly inside your browser.
   - Multiple visualizer themes: Oscilloscope, Neon Tunnel, Starfield, Aurora Waves, Cyber City, and Hyperspace.
   - Export HD video in multiple aspect ratios (16:9 for YouTube/Desktop, 9:16 for Reels/TikTok, or 1:1 for Instagram).
 
+<img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 41" src="https://github.com/user-attachments/assets/b1008910-e2a0-43f1-99c4-563a0783fb48" />
+
+
 - 🎨 **Retro Cover Designer:**
   - Create pixel-perfect physical media art for your releases (3.5" Floppy Disk, Cassette Tape, and CD Jewel Case mockups).
+
+  <img width="1919" height="1010" alt="Screenshot 2026-09-18 17 00 50" src="https://github.com/user-attachments/assets/d33564f6-b55b-4fab-96b3-239491e3fc65" />
+
 
 - 💾 **Comprehensive Export & Import Options:**
   - **Audio formats:** WAV, MP3, OGG, FLAC, and unmixed multi-track stems.
