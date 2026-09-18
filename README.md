@@ -130,7 +130,11 @@ Created by **Jürg Wüthrich (Vectrex71)**
 - **GitHub:** [@Vectrex71](https://github.com/Vectrex71)
 - **Bluesky:** [@hj-wuethrich.bsky.social](https://bsky.app/profile/hj-wuethrich.bsky.social)
 
----
+If you find this tool helpful and would like to support its development, please consider a small donation.
+
+<a href="https://paypal.me/HansjuergWuethrich" target="_blank" rel="noopener noreferrer">
+<img width="200" height="80" alt="paypal-donate-button" src="https://github.com/user-attachments/assets/e8cacd72-bca7-4f30-a718-48390d801e25" /> 
+ 
 
 ## 📄 License
 
