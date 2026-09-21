@@ -29,7 +29,6 @@ import {
   Disc,
   Clock,
   Waves,
-  Coffee,
   Layers,
 } from 'lucide-react';
 import { TrackerSample, RetroChipSystem, KeyboardLayout } from '../types';
@@ -37,7 +36,6 @@ import { decodeAudioBufferSafe } from '../utils/audioDecoder';
 import { audioBufferToWavBlob, audioBufferToMp3Blob } from '../utils/audioExporter';
 import { PersonaSwitcher, AppPersona } from './PersonaSwitcher';
 import { useAuth } from '../context/AuthContext';
-import { isProUser } from '../lib/firebase';
 import { audioEngine, midiToNote, getPlaybackRate } from '../lib/audioEngine';
 import { SynEditorAuditionBar, AuditionNoteInfo } from '../synEditor/SynEditorAuditionBar';
 import {
@@ -67,9 +65,6 @@ interface SynEditorModalProps {
   onPlayPreview?: (noteMidi: number, sample?: TrackerSample) => void;
   onShowToast?: (msg: string) => void;
   onSwitchPersona?: (persona: AppPersona) => void;
-  onOpenSupport?: () => void;
-  showSupportButton?: boolean;
-  isSupporter?: boolean;
 }
 
 interface SelectionRange {
@@ -138,12 +133,7 @@ export const SynEditorModal: React.FC<SynEditorModalProps> = ({
   onPlayPreview,
   onShowToast,
   onSwitchPersona,
-  onOpenSupport,
-  showSupportButton = true,
-  isSupporter = false,
 }) => {
-  const { profile } = useAuth();
-  const effectiveIsPro = Boolean(isSupporter || isProUser(profile));
   // Active selected tracker slot in the editor
   const [activeSlot, setActiveSlot] = useState<number>(selectedSampleIndex || 0);
 

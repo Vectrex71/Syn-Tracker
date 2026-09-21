@@ -22,7 +22,6 @@ import {
   Film, 
   Image as ImageIcon, 
   Type, 
-  Coffee, 
   Check, 
   RefreshCw,
   Monitor,
@@ -673,8 +672,6 @@ interface VisualizerStudioModalProps {
   onShowToast?: (msg: string) => void;
   onOpenLocalFile?: (file: File) => void;
   onSwitchPersona?: (persona: AppPersona) => void;
-  onOpenSupport?: () => void;
-  showSupportButton?: boolean;
 }
 
 const LOCAL_STORAGE_PRESETS_KEY = 'syntracker_visualizer_presets_v1';
@@ -689,8 +686,6 @@ export const VisualizerStudioModal: React.FC<VisualizerStudioModalProps> = ({
   onShowToast,
   onOpenLocalFile,
   onSwitchPersona,
-  onOpenSupport,
-  showSupportButton = true,
 }) => {
   const isWatermarkedExportRef = useRef<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

@@ -35,7 +35,6 @@ import { VisualizerStudioModal } from './components/VisualizerStudioModal';
 import { SynEditorModal } from './components/SynEditorModal';
 import { CoverDesignerModal } from './components/CoverDesignerModal';
 import { useAuth } from './context/AuthContext';
-import { isProUser } from './lib/firebase';
 import { PersonaSwitcher, AppPersona } from './components/PersonaSwitcher';
 import { AutoRecoveryBanner } from './components/AutoRecoveryBanner';
 import { MobileUnsupportedScreen, isSmartphoneDevice } from './components/MobileUnsupportedScreen';
@@ -165,27 +164,6 @@ export default function App() {
   const [isCoverDesignerOpen, setIsCoverDesignerOpen] = useState<boolean>(false);
 
   const { profile } = useAuth();
-  const isSupporter = isProUser(profile);
-  const [showSupportButton, setShowSupportButton] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('syntracker_show_support_btn');
-      return saved !== null ? JSON.parse(saved) : true;
-    } catch {
-      return true;
-    }
-  });
-
-  const effectiveShowSupport = showSupportButton && !isSupporter;
-
-  const handleToggleSupportButton = (show: boolean) => {
-    setShowSupportButton(show);
-    try {
-      localStorage.setItem('syntracker_show_support_btn', JSON.stringify(show));
-    } catch {
-      // Ignore
-    }
-    showToast(show ? 'Support button is now visible' : 'Support button hidden');
-  };
 
   // Studio Persona Switcher (Tracker / Waveform Editor / Visualizer / Cover Designer)
   const handleSelectPersona = useCallback((persona: AppPersona) => {
@@ -1884,8 +1862,6 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
             onPlayPreview={handlePlayPreview}
             onShowToast={showToast}
             onSwitchPersona={handleSelectPersona}
-            showSupportButton={effectiveShowSupport}
-            isSupporter={isSupporter}
           />
         ) : isVisualizerStudioOpen ? (
           <VisualizerStudioModal
@@ -1899,7 +1875,6 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
             onShowToast={showToast}
             onOpenLocalFile={handleOpenLocalFile}
             onSwitchPersona={handleSelectPersona}
-            showSupportButton={effectiveShowSupport}
           />
         ) : isCoverDesignerOpen ? (
           <CoverDesignerModal
@@ -1911,8 +1886,6 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
             onShowToast={showToast}
             activeChipSystem={activeChipSystem}
             onSelectPersona={handleSelectPersona}
-            showSupportButton={effectiveShowSupport}
-            isSupporter={isSupporter}
           />
         ) : (
           <motion.div
@@ -1995,7 +1968,6 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
           onSelectPersona={handleSelectPersona}
           onUpdateSongName={handleUpdateSongName}
           onOpenSaveModal={handleOpenSaveModal}
-          showSupportButton={effectiveShowSupport}
         />
       </motion.div>
 
@@ -2041,8 +2013,6 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
             onAddOrderStep={handleAddOrderStep}
             onRemoveOrderStep={handleRemoveOrderStep}
             onReorderOrderList={handleReorderOrderList}
-            showSupportButton={effectiveShowSupport}
-            isPro={isSupporter}
             onStartTutorial={() => setIsTutorialOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onToggleHelp={() => setIsHelpOpen(true)}

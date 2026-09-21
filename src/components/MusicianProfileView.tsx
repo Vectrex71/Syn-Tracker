@@ -16,7 +16,6 @@ import {
   Disc, 
   Sparkles, 
   Award, 
-  Coffee, 
   Heart, 
   Check, 
   Copy, 
@@ -70,8 +69,7 @@ import {
   incrementTrackPlays,
   updateAlbumDetailsAcrossTracks,
   getPublishedTrackById,
-  extractYouTubeId,
-  isProUser
+  extractYouTubeId
 } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { TrackerSong, RetroChipSystem } from '../types';
@@ -92,7 +90,6 @@ interface MusicianProfileViewProps {
   refreshTrigger?: number;
   onBackToStudio: () => void;
   onOpenEditProfile: () => void;
-  onOpenSupporterInfo?: () => void;
   onOpenPublishTrack?: (albumContext?: { albumTitle?: string; albumCover?: string }) => void;
   onLoadSongIntoTracker?: (song: TrackerSong) => void;
   onOpenCoverDesigner?: () => void;
@@ -244,7 +241,6 @@ export const MusicianProfileView: React.FC<MusicianProfileViewProps> = ({
   refreshTrigger,
   onBackToStudio,
   onOpenEditProfile,
-  onOpenSupporterInfo,
   onOpenPublishTrack,
   onLoadSongIntoTracker,
   onOpenCoverDesigner,
@@ -255,7 +251,6 @@ export const MusicianProfileView: React.FC<MusicianProfileViewProps> = ({
   onToggleCommunityRadio,
 }) => {
   const { currentUser, profile: authProfile } = useAuth();
-  const isAuthUserPro = isProUser(authProfile);
 
   // Mode: 'landing' (landing page), 'feed' (social timeline stream), or 'portfolio' (artist page)
   const [viewMode, setViewMode] = useState<ViewMode>(() => {

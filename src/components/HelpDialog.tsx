@@ -22,19 +22,15 @@ import {
   Layers,
   Sparkles,
   Command,
-  Coffee,
   Heart
 } from 'lucide-react';
 import { KeyboardLayout } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { isProUser } from '../lib/firebase';
-
 interface HelpDialogProps {
   isOpen: boolean;
   onClose: () => void;
   keyboardLayout: KeyboardLayout;
   onStartTutorial?: () => void;
-  onOpenSupport?: () => void;
 }
 
 type ChapterId = 
@@ -104,10 +100,7 @@ export const HelpDialog: React.FC<HelpDialogProps> = ({
   onClose, 
   keyboardLayout,
   onStartTutorial,
-  onOpenSupport,
 }) => {
-  const { profile } = useAuth();
-  const isPro = isProUser(profile);
   const [activeChapter, setActiveChapter] = useState<ChapterId>('getting_started');
   const [searchQuery, setSearchQuery] = useState('');
 

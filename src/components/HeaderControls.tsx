@@ -33,7 +33,6 @@ import {
   Video,
   Repeat,
   Waves,
-  Coffee,
 } from 'lucide-react';
 import { TrackerSong, KeyboardLayout, RetroChipSystem, getAllowedChannelsForSystem } from '../types';
 import { getAvailableExportFormats } from '../utils/exportFilters';
@@ -107,8 +106,6 @@ interface HeaderControlsProps {
   onSelectPersona?: (persona: AppPersona) => void;
   onUpdateSongName?: (name: string) => void;
   onOpenSaveModal?: (format?: 'trk' | 'browser' | 'mod' | 'wav' | 'mp3' | 'stems' | 'sid' | 'prg') => void;
-  onOpenSupport?: () => void;
-  showSupportButton?: boolean;
 }
 
 export const HeaderControls: React.FC<HeaderControlsProps> = ({
@@ -159,8 +156,6 @@ export const HeaderControls: React.FC<HeaderControlsProps> = ({
   onSelectPersona,
   onUpdateSongName,
   onOpenSaveModal,
-  onOpenSupport,
-  showSupportButton = true,
 }) => {
   const localFileInputRef = useRef<HTMLInputElement>(null);
   const modFileInputRef = useRef<HTMLInputElement>(null);

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Plus, Trash, ArrowUp, ArrowDown, GripVertical, Sparkles, Settings, HelpCircle, Coffee } from 'lucide-react';
+import { Plus, Trash, ArrowUp, ArrowDown, GripVertical, Sparkles, Settings, HelpCircle } from 'lucide-react';
 
 interface OrderListProps {
   orderList: number[];
@@ -18,9 +18,6 @@ interface OrderListProps {
   onAddOrderStep: () => void;
   onRemoveOrderStep: (index: number) => void;
   onReorderOrderList: (fromIndex: number, toIndex: number) => void;
-  onOpenSupport?: () => void;
-  showSupportButton?: boolean;
-  isPro?: boolean;
   onStartTutorial?: () => void;
   onOpenSettings?: () => void;
   onToggleHelp?: () => void;
@@ -42,14 +39,10 @@ export const OrderList: React.FC<OrderListProps> = ({
   onAddOrderStep,
   onRemoveOrderStep,
   onReorderOrderList,
-  onOpenSupport,
-  showSupportButton = true,
-  isPro = false,
   onStartTutorial,
   onOpenSettings,
   onToggleHelp,
 }: OrderListProps) => {
-  const effectiveIsPro = Boolean(isPro);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = React.useState<number>(240);
   const [manualScrollOffset, setManualScrollOffset] = React.useState<number>(0);

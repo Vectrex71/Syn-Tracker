@@ -23,7 +23,6 @@ interface ExportAudioModalProps {
   onShowToast: (msg: string) => void;
   activeSystem?: RetroChipSystem | null;
   onOpenVisualizerStudio?: () => void;
-  onOpenSupport?: () => void;
 }
 
 export const ExportAudioModal: React.FC<ExportAudioModalProps> = ({
@@ -33,7 +32,6 @@ export const ExportAudioModal: React.FC<ExportAudioModalProps> = ({
   onShowToast,
   activeSystem,
   onOpenVisualizerStudio,
-  onOpenSupport,
 }) => {
   const detectedSystem = detectSongSystem(song, activeSystem);
   const availableFormats = getAvailableExportFormats(song, activeSystem);

@@ -28,7 +28,6 @@ import {
   Orbit,
   LayoutGrid,
   Sun,
-  Coffee,
   Disc3,
   Bookmark,
   Plus,
@@ -52,7 +51,6 @@ import {
 import { TrackerSong, RetroChipSystem } from '../types';
 import { PersonaSwitcher, AppPersona } from './PersonaSwitcher';
 import { useAuth } from '../context/AuthContext';
-import { isProUser } from '../lib/firebase';
 
 export type CoverPresetTheme =
   | 'amiga_copper'
@@ -192,9 +190,6 @@ interface CoverDesignerModalProps {
   onShowToast: (msg: string) => void;
   activeChipSystem?: RetroChipSystem | null;
   onSelectPersona?: (persona: AppPersona) => void;
-  onOpenSupport?: () => void;
-  showSupportButton?: boolean;
-  isSupporter?: boolean;
 }
 
 export const CoverDesignerModal: React.FC<CoverDesignerModalProps> = ({
@@ -205,12 +200,7 @@ export const CoverDesignerModal: React.FC<CoverDesignerModalProps> = ({
   onShowToast,
   activeChipSystem,
   onSelectPersona,
-  onOpenSupport,
-  showSupportButton = true,
-  isSupporter = false,
 }) => {
-  const { profile } = useAuth();
-  const isPro = Boolean(isSupporter || isProUser(profile));
   // Core Metadata States
   const [title, setTitle] = useState(song.name || 'Back on Track');
   const [artist, setArtist] = useState(song.artist || 'SYN-Tracker Music');
