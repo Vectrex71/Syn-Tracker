@@ -346,7 +346,8 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
       src.playbackRate.value = semitoneRatio;
 
       const gain = ctx.createGain();
-      gain.gain.value = 0.9;
+      // Calibrated to match tracker playback level (Paula 64 volume through master engine at ~0.35)
+      gain.gain.value = 0.35;
       src.connect(gain);
       gain.connect(ctx.destination);
 
