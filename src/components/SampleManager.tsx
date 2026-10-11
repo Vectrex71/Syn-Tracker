@@ -616,45 +616,6 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {onLoadStKit && (
-            <button
-              onClick={onLoadStKit}
-              className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-semibold cursor-pointer bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 hover:text-white flex items-center gap-1 shadow-xs transition-colors shrink-0 whitespace-nowrap"
-              title="Load classic ST-01 Amiga sound set (BassDrum4, CloseHiHat, DeepBass, etc.)"
-            >
-              <Zap className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>ST-01 Kit</span>
-            </button>
-          )}
-
-          {onRestoreAutoSave && (
-            <button
-              onClick={onRestoreAutoSave}
-              className="w-6 h-6 rounded cursor-pointer bg-sky-950/70 hover:bg-sky-900 border border-sky-500/50 text-sky-300 hover:text-white flex items-center justify-center shadow-xs transition-colors shrink-0"
-              title="Restore last auto-saved session and instruments"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-sky-400" />
-            </button>
-          )}
-
-          {activeSample && (activeSample.buffer || (activeSample.name && activeSample.name !== '' && activeSample.name !== 'Empty')) && (
-            <button
-              onClick={() => {
-                onUpdateSample(selectedSampleIndex, {
-                  name: 'Empty',
-                  buffer: undefined,
-                  base64Data: undefined,
-                  length: 0,
-                  loopLength: 0,
-                });
-              }}
-              className="w-6 h-6 rounded flex items-center justify-center cursor-pointer aqua-gloss aqua-dark text-[#94a3b8] hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-950/30 shadow-xs transition-colors border border-white/10 shrink-0"
-              title="Clear current instrument slot"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-
           {onAddSampleSlot && samples.length < 32 && (
             <button
               onClick={onAddSampleSlot}
@@ -848,7 +809,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         )}
       </div>
 
-      {/* Tabs: Waveform Editor | ADSR Envelope | Loop & Tuning | FX Rack */}
+      {/* Tabs: Wave | ADSR | Loop | FX Rack | Clear Slot */}
       <div className="flex items-center justify-between gap-1 mb-2 border-b border-white/10 pb-1.5 overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-1">
           <button
@@ -863,8 +824,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
             } : undefined}
           >
             <Scissors className="w-3 h-3" />
-            <span className="hidden 2xl:inline">Wave Editor</span>
-            <span className="2xl:hidden">Wave</span>
+            <span>Wave</span>
           </button>
           <button
             onClick={() => setActiveTab('adsr')}
@@ -896,19 +856,40 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
           </button>
         </div>
 
-        {/* FX RACK TOGGLE BUTTON (Placed beside Wave Editor tab) */}
-        {onToggleFxRack && (
-          <button
-            onClick={onToggleFxRack}
-            className={`px-1.5 sm:px-2 py-1 text-[10.5px] font-bold rounded-md flex items-center gap-1 cursor-pointer aqua-gloss transition-all shrink-0 ${
-              isFxRackOpen ? 'aqua-theme text-white' : 'aqua-dark text-sky-400 hover:text-white border border-[#27364a]'
-            }`}
-            title="Toggle Master Hardware FX & Spectrum Rack"
-          >
-            <Sliders className="w-3 h-3 text-sky-400" />
-            <span className="whitespace-nowrap">FX Rack</span>
-          </button>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* FX RACK TOGGLE BUTTON */}
+          {onToggleFxRack && (
+            <button
+              onClick={onToggleFxRack}
+              className={`px-1.5 sm:px-2 py-1 text-[10.5px] font-bold rounded-md flex items-center gap-1 cursor-pointer aqua-gloss transition-all shrink-0 ${
+                isFxRackOpen ? 'aqua-theme text-white' : 'aqua-dark text-sky-400 hover:text-white border border-[#27364a]'
+              }`}
+              title="Toggle Master Hardware FX & Spectrum Rack"
+            >
+              <Sliders className="w-3 h-3 text-sky-400" />
+              <span className="whitespace-nowrap">FX Rack</span>
+            </button>
+          )}
+
+          {/* CLEAR SLOT (TRASH) BUTTON */}
+          {activeSample && (activeSample.buffer || (activeSample.name && activeSample.name !== '' && activeSample.name !== 'Empty')) && (
+            <button
+              onClick={() => {
+                onUpdateSample(selectedSampleIndex, {
+                  name: 'Empty',
+                  buffer: undefined,
+                  base64Data: undefined,
+                  length: 0,
+                  loopLength: 0,
+                });
+              }}
+              className="h-6 w-6 rounded flex items-center justify-center cursor-pointer aqua-gloss aqua-dark text-[#94a3b8] hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-950/30 shadow-xs transition-colors border border-white/10 shrink-0"
+              title="Clear current instrument slot"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {activeSample && (
