@@ -12,7 +12,7 @@
 
 **SYN-Tracker** is a powerful, fully-featured retro music workstation running directly in the browser. It combines the tactile workflow of classic tracker software (like ProTracker, FastTracker II, MilkyTracker, and DefleMask) with modern WebAudio DSP synthesis, video visualizers, and versatile export options.
 
----
+<img width="1890" height="999" alt="Screenshot 2026-10-11 16 33 52" src="https://github.com/user-attachments/assets/653fbbbe-5363-4b22-b885-6dd5aebaac8f" />
 
 ## ✨ Features
 
@@ -29,17 +29,26 @@
   - Full tracker effect command set (Arpeggio, Portamento, Vibrato, Filter Cutoff, Retrigger, Volume Slides, Sample Offset).
   - Multi-level Undo/Redo history, transpose tools, and block copy/paste.
 
+ <img width="1890" height="999" alt="Screenshot 2026-10-11 16 34 03" src="https://github.com/user-attachments/assets/2810b1ff-afcd-494b-9cd2-f0c4091c7314" />
+
 - 🎚️ **Integrated Synth & Instrument Editor:**
   - Custom ADSR envelopes, LFO modulators, wavetables, and macros.
   - Built-in sample editor with trim, normalize, reverse, pitch tuning, and loop-point tools.
+
+ <img width="1890" height="999" alt="Screenshot 2026-10-11 16 34 10" src="https://github.com/user-attachments/assets/407fa3ee-027a-4c02-89fa-de146853c6bd" />
 
 - 🎥 **Visualizer Studio & Video Export:**
   - Generate retro-styled music videos for your tracks directly inside your browser.
   - Multiple visualizer themes: Oscilloscope, Neon Tunnel, Starfield, Aurora Waves, Cyber City, and Hyperspace.
   - Export HD video in multiple aspect ratios (16:9 for YouTube/Desktop, 9:16 for Reels/TikTok, or 1:1 for Instagram).
 
+ <img width="1890" height="999" alt="Screenshot 2026-10-11 16 34 17" src="https://github.com/user-attachments/assets/d0e68b31-6f05-46d9-84ef-5751ae2e1f3e" />
+
+
 - 🎨 **Retro Cover Designer:**
   - Create pixel-perfect physical media art for your releases (3.5" Floppy Disk, Cassette Tape, and CD Jewel Case mockups).
+
+ <img width="1890" height="999" alt="Screenshot 2026-10-11 16 34 34" src="https://github.com/user-attachments/assets/cb8d1d84-e8aa-4f56-a86e-8e3c893e6161" />
 
 - 💾 **Comprehensive Export & Import Options:**
   - **Audio formats:** WAV, MP3, OGG, FLAC, and unmixed multi-track stems.
