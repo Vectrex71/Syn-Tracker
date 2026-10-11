@@ -4,7 +4,7 @@
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Upload, Layers, Scissors, Activity, Repeat, Trash2, Play, Volume2, Plus, Disc, Waves, Sliders } from 'lucide-react';
+import { Upload, Layers, Scissors, Activity, Repeat, Trash2, Play, Volume2, Plus, Disc, Waves, Sliders, Zap, RotateCcw } from 'lucide-react';
 import { TrackerSample, KeyboardLayout, RetroChipSystem } from '../types';
 import { midiToNote } from '../lib/audioEngine';
 import { saveSampleData } from '../lib/indexedDB';
@@ -81,11 +81,12 @@ interface SampleManagerProps {
   onSelectSample: (index: number) => void;
   onUpdateSample: (index: number, updated: Partial<TrackerSample>) => void;
   onPlayPreview: (midiNote: number, sample: TrackerSample) => void;
-  activePreviewTrigger?: { midiNote: number; sampleIndex: number; timestamp: number } | null;
   onAddSampleSlot?: () => void;
   onOpenAmigaVault?: () => void;
   onOpenSidSynth?: () => void;
   onOpenSynEditor?: () => void;
+  onLoadStKit?: () => void;
+  onRestoreAutoSave?: () => void;
 }
 
 export const SampleManager: React.FC<SampleManagerProps> = ({
@@ -101,11 +102,12 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
   onSelectSample,
   onUpdateSample,
   onPlayPreview,
-  activePreviewTrigger,
   onAddSampleSlot,
   onOpenAmigaVault,
   onOpenSidSynth,
   onOpenSynEditor,
+  onLoadStKit,
+  onRestoreAutoSave,
 }) => {
   const activeSample = samples?.[selectedSampleIndex] || samples?.[0];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -130,57 +132,46 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
   const previewStartTimeRef = useRef<number>(0);
   const previewDurationRef = useRef<number>(0);
 
-  const handlePlayheadAnimation = useCallback((note: number, sample: TrackerSample) => {
-    if (!sample || !sample.buffer) return;
-    if (previewRafRef.current) {
-      cancelAnimationFrame(previewRafRef.current);
-      previewRafRef.current = null;
-    }
-    const pitchRatio = Math.pow(2, (note - (sample.baseNote || 36)) / 12);
-    const effectiveRate = Math.max(0.05, pitchRatio);
-    const rawDur = sample.buffer.duration / effectiveRate;
-    previewDurationRef.current = sample.loopEnabled ? Math.max(rawDur, 1.5) : rawDur;
-    previewStartTimeRef.current = performance.now();
-    setPreviewProgress(0);
-
-    const updatePlayhead = () => {
-      const elapsed = (performance.now() - previewStartTimeRef.current) / 1000;
-      if (elapsed < previewDurationRef.current) {
-        if (sample.loopEnabled && sample.buffer && sample.loopEnd > sample.loopStart) {
-          const sRate = sample.buffer.sampleRate;
-          const lStartSec = (sample.loopStart || 0) / sRate / effectiveRate;
-          const lEndSec = (sample.loopEnd || sample.buffer.length) / sRate / effectiveRate;
-          const loopLenSec = Math.max(0.01, lEndSec - lStartSec);
-          let curSec = elapsed;
-          if (curSec > lStartSec) {
-            curSec = lStartSec + ((curSec - lStartSec) % loopLenSec);
-          }
-          const prog = curSec / rawDur;
-          setPreviewProgress(Math.min(1, Math.max(0, prog)));
-        } else {
-          setPreviewProgress(Math.min(1, elapsed / previewDurationRef.current));
-        }
-        previewRafRef.current = requestAnimationFrame(updatePlayhead);
-      } else {
-        setPreviewProgress(null);
-        previewRafRef.current = null;
-      }
-    };
-    previewRafRef.current = requestAnimationFrame(updatePlayhead);
-  }, []);
-
   const handlePlayPreview = useCallback((note: number, sample: TrackerSample) => {
     onPlayPreview(note, sample);
-    handlePlayheadAnimation(note, sample);
-  }, [onPlayPreview, handlePlayheadAnimation]);
+    if (sample.buffer) {
+      if (previewRafRef.current) {
+        cancelAnimationFrame(previewRafRef.current);
+        previewRafRef.current = null;
+      }
+      const pitchRatio = Math.pow(2, (note - (sample.baseNote || 36)) / 12);
+      const effectiveRate = Math.max(0.05, pitchRatio);
+      const rawDur = sample.buffer.duration / effectiveRate;
+      previewDurationRef.current = sample.loopEnabled ? Math.max(rawDur, 1.5) : rawDur;
+      previewStartTimeRef.current = performance.now();
+      setPreviewProgress(0);
 
-  // Jedes Mal wenn eine Taste gedrückt wird, die das Sample in einer Tonhöhe abspielt
-  useEffect(() => {
-    if (!activePreviewTrigger) return;
-    if (activePreviewTrigger.sampleIndex === selectedSampleIndex && activeSample?.buffer) {
-      handlePlayheadAnimation(activePreviewTrigger.midiNote, activeSample);
+      const updatePlayhead = () => {
+        const elapsed = (performance.now() - previewStartTimeRef.current) / 1000;
+        if (elapsed < previewDurationRef.current) {
+          if (sample.loopEnabled && sample.buffer && sample.loopEnd > sample.loopStart) {
+            const sRate = sample.buffer.sampleRate;
+            const lStartSec = (sample.loopStart || 0) / sRate / effectiveRate;
+            const lEndSec = (sample.loopEnd || sample.buffer.length) / sRate / effectiveRate;
+            const loopLenSec = Math.max(0.01, lEndSec - lStartSec);
+            let curSec = elapsed;
+            if (curSec > lStartSec) {
+              curSec = lStartSec + ((curSec - lStartSec) % loopLenSec);
+            }
+            const prog = curSec / rawDur;
+            setPreviewProgress(Math.min(1, Math.max(0, prog)));
+          } else {
+            setPreviewProgress(Math.min(1, elapsed / previewDurationRef.current));
+          }
+          previewRafRef.current = requestAnimationFrame(updatePlayhead);
+        } else {
+          setPreviewProgress(null);
+          previewRafRef.current = null;
+        }
+      };
+      previewRafRef.current = requestAnimationFrame(updatePlayhead);
     }
-  }, [activePreviewTrigger, selectedSampleIndex, activeSample, handlePlayheadAnimation]);
+  }, [onPlayPreview]);
 
   useEffect(() => {
     return () => {
@@ -311,16 +302,20 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.stroke();
       }
 
-      // Draw Playhead cursor in classic retro phosphor green ONLY when actively playing/auditioning!
-      if (buffer && buffer.length > 0 && previewProgress !== null) {
-        const playheadX = Math.max(2, Math.min(width - 2, previewProgress * width));
+      // Draw Playhead cursor in classic retro phosphor green (always visible, glowing during audition)
+      if (buffer && buffer.length > 0) {
+        const isAuditioning = previewProgress !== null;
+        const prog = isAuditioning
+          ? previewProgress
+          : (selectionRange ? Math.min(selectionRange.start, selectionRange.end) / buffer.length : 0);
+        const playheadX = Math.max(2, Math.min(width - 2, prog * width));
 
         ctx.save();
         // Retro phosphor tracker green (#22c55e / #4ade80)
-        ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = isAuditioning ? '#22c55e' : '#10b981';
+        ctx.lineWidth = isAuditioning ? 2.5 : 2;
         ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = isAuditioning ? 10 : 4;
 
         ctx.beginPath();
         ctx.moveTo(playheadX, 0);
@@ -329,7 +324,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.shadowBlur = 0;
 
         // Top triangle cap
-        ctx.fillStyle = '#4ade80';
+        ctx.fillStyle = isAuditioning ? '#4ade80' : '#22c55e';
         ctx.beginPath();
         ctx.moveTo(playheadX - 5, 0);
         ctx.lineTo(playheadX + 5, 0);
@@ -621,6 +616,28 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
+          {onLoadStKit && (
+            <button
+              onClick={onLoadStKit}
+              className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-semibold cursor-pointer bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 hover:text-white flex items-center gap-1 shadow-xs transition-colors"
+              title="Lade klassisches ST-01 Amiga Sound-Set (BassDrum4, HiHat, Bass, Lead, etc.)"
+            >
+              <Zap className="w-3 h-3 text-emerald-400" />
+              <span>ST-01 Kit</span>
+            </button>
+          )}
+
+          {onRestoreAutoSave && (
+            <button
+              onClick={onRestoreAutoSave}
+              className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-semibold cursor-pointer bg-sky-950/70 hover:bg-sky-900 border border-sky-500/50 text-sky-300 hover:text-white flex items-center gap-1 shadow-xs transition-colors"
+              title="Letzte gespeicherte Samples / Session wiederherstellen"
+            >
+              <RotateCcw className="w-3 h-3 text-sky-400" />
+              <span>Restore</span>
+            </button>
+          )}
+
           {onAddSampleSlot && samples.length < 32 && (
             <button
               onClick={onAddSampleSlot}

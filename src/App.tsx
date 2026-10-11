@@ -41,6 +41,7 @@ import { MobileUnsupportedScreen, isSmartphoneDevice } from './components/Mobile
 import { TabletOrientationOverlay } from './components/TabletOrientationOverlay';
 import { CHIP_KITS, CHIP_INSTRUMENTS, ChipKitType, createChipSample } from './lib/chipPresets';
 import { decodeAudioBufferSafe } from './utils/audioDecoder';
+import { loadStStarterKit } from './utils/stStarterKit';
 import { trackEvent } from './utils/analytics';
 
 // Helper to convert base64 to ArrayBuffer
@@ -240,28 +241,62 @@ export default function App() {
     return () => window.removeEventListener('resize', checkDevice);
   }, []);
 
-  // Check for auto-saved emergency backup on startup
+  // Check for auto-saved emergency backup on startup, or initialize ST-01 Starter Kit
   useEffect(() => {
     let isMounted = true;
-    getAutoSaveSession().then((backup) => {
-      if (!isMounted || !backup || !backup.songData) return;
-      
-      const songData = backup.songData;
-      const hasNotes = songData.patterns?.some((p: any) =>
-        p.channels?.some((c: any) => c?.some((st: any) => st?.note || (st?.instrument !== null && st?.instrument !== undefined)))
-      );
-      const isCustomNamed = backup.name && backup.name !== 'Back on Track';
-      const hasCustomSamples = songData.samples?.some((s: any) => (s.name && !s.name.startsWith('Sample ')) || s.buffer || s.base64Data || s.sidConfig);
+    getAutoSaveSession().then(async (backup) => {
+      if (!isMounted) return;
 
-      if (hasNotes || isCustomNamed || hasCustomSamples) {
-        setAutoRecoveryMeta({
-          name: backup.name || songData.name || 'Unsaved Jam Session',
-          updatedAt: backup.updatedAt,
-          patternCount: songData.patterns?.length || 0,
-          channelsCount: songData.channelsCount || 4,
-          system: (backup.system as RetroChipSystem) || songData.system || null,
-        });
-        setIsAutoRecoveryBannerOpen(true);
+      if (backup && backup.songData) {
+        const songData = backup.songData;
+        const hasNotes = songData.patterns?.some((p: any) =>
+          p.channels?.some((c: any) => c?.some((st: any) => st?.note || (st?.instrument !== null && st?.instrument !== undefined)))
+        );
+        const isCustomNamed = backup.name && backup.name !== 'Back on Track';
+        const hasCustomSamples = songData.samples?.some((s: any) => (s.name && !s.name.startsWith('Sample ')) || s.buffer || s.base64Data || s.sidConfig);
+
+        if (hasNotes || isCustomNamed || hasCustomSamples) {
+          try {
+            // Auto-restore saved session and audio buffers so samples are NEVER lost!
+            const restoredSong = await rebuildAudioBuffers(backup.songData);
+            if (!isMounted) return;
+            const targetSystem = (backup.system || backup.songData?.system || restoredSong.system || null) as RetroChipSystem | null;
+            setActiveChipSystem(targetSystem);
+            if (targetSystem) restoredSong.system = targetSystem;
+            setSong(restoredSong);
+            songRef.current = restoredSong;
+            showToast(`Auto-restored last project: ${backup.name || restoredSong.name}`);
+            return;
+          } catch (err) {
+            console.warn('Auto-restore failed, falling back to recovery banner:', err);
+            setAutoRecoveryMeta({
+              name: backup.name || songData.name || 'Unsaved Jam Session',
+              updatedAt: backup.updatedAt,
+              patternCount: songData.patterns?.length || 0,
+              channelsCount: songData.channelsCount || 4,
+              system: (backup.system as RetroChipSystem) || songData.system || null,
+            });
+            setIsAutoRecoveryBannerOpen(true);
+            return;
+          }
+        }
+      }
+
+      // If no valid saved session, load the default ST-01 Starter Kit with BassDrum4 & instruments
+      try {
+        if (!audioEngine.ctx) audioEngine.init();
+        if (audioEngine.ctx) {
+          const starterSamples = await loadStStarterKit(audioEngine.ctx);
+          if (isMounted) {
+            setSong((prev) => {
+              const alreadyHasSamples = prev.samples.some((s) => s.buffer || (s.name && !s.name.startsWith('Sample ')));
+              if (alreadyHasSamples) return prev;
+              return { ...prev, samples: starterSamples };
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load initial ST-01 kit:', err);
       }
     }).catch(() => {});
 
@@ -962,6 +997,27 @@ export default function App() {
     showToast(`Added Instrument Slot ${newId.toString().padStart(2, '0')} (${song.samples.length + 1}/32)`);
   };
 
+  // Quick reload / restore curated ST-01 Amiga Kit (with BassDrum4, HiHat, Bass, etc.)
+  const handleLoadStStarterKit = async () => {
+    try {
+      if (!audioEngine.ctx) audioEngine.init();
+      if (audioEngine.ctx && audioEngine.ctx.state === 'suspended') {
+        await audioEngine.ctx.resume().catch(() => {});
+      }
+      if (!audioEngine.ctx) return;
+      const kitSamples = await loadStStarterKit(audioEngine.ctx);
+      updateSongWithUndo((prev) => ({
+        ...prev,
+        samples: kitSamples,
+      }));
+      setSelectedSampleIndex(0);
+      showToast('Loaded ST-01 Amiga Kit (BassDrum4, CloseHiHat, DeepBass, etc.)');
+    } catch (e) {
+      console.error('Failed to load ST-01 kit:', e);
+      showToast('Error loading ST-01 kit');
+    }
+  };
+
   // Add pattern sequence to order list
   const handleAddOrderStep = () => {
     updateSongWithUndo((prev) => {
@@ -1240,21 +1296,9 @@ export default function App() {
     showToast(`Pattern ${activePattern.id.toString().padStart(2, '0')} cleared`);
   };
 
-  // Note preview playing (direct Web Audio routing with reactive preview trigger)
-  const [activePreviewTrigger, setActivePreviewTrigger] = useState<{
-    midiNote: number;
-    sampleIndex: number;
-    timestamp: number;
-  } | null>(null);
-
+  // Note preview playing (direct Web Audio routing)
   const handlePlayPreview = (midiNote: number, sample: TrackerSample) => {
     audioEngine.playNoteInstantly(midiNote, sample);
-    const sIndex = sample.id !== undefined ? sample.id : selectedSampleIndex;
-    setActivePreviewTrigger({
-      midiNote,
-      sampleIndex: sIndex,
-      timestamp: Date.now(),
-    });
   };
 
   const handleStopPreview = () => {
@@ -2162,13 +2206,14 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
             onSelectSample={setSelectedSampleIndex}
             onUpdateSample={handleUpdateSample}
             onPlayPreview={handlePlayPreview}
-            activePreviewTrigger={activePreviewTrigger}
             onAddSampleSlot={handleAddSampleSlot}
             onOpenAmigaVault={() => setIsAmigaVaultOpen(true)}
             onOpenSidSynth={() => {
               setIsSidModalOpen(true);
             }}
             onOpenSynEditor={() => setIsSynEditorOpen(true)}
+            onLoadStKit={handleLoadStStarterKit}
+            onRestoreAutoSave={handleRestoreAutoSave}
           />
         </motion.div>
             </main>

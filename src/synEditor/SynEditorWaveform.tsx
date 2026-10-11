@@ -424,15 +424,15 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
       }
     }
 
-    // Draw Playhead Cursor in retro tracker green ONLY when actively playing!
-    if (isPlaying && currentBuffer && playheadFrame >= startSample && playheadFrame <= endSample) {
+    // Draw Playhead Cursor (always visible when audio loaded, glowing green when playing)
+    if (currentBuffer && playheadFrame >= startSample && playheadFrame <= endSample) {
       const playheadX = Math.max(2, Math.min(width - 2, ((playheadFrame - startSample) / sampleWindow) * width));
       ctx.save();
       // Retro tracker phosphor green (#22c55e / #4ade80)
-      ctx.strokeStyle = '#22c55e';
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = isPlaying ? '#22c55e' : '#10b981';
+      ctx.lineWidth = isPlaying ? 2.5 : 2;
       ctx.shadowColor = '#22c55e';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = isPlaying ? 10 : 4;
 
       ctx.beginPath();
       ctx.moveTo(playheadX, 0);
@@ -441,7 +441,7 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
       ctx.shadowBlur = 0;
 
       // Top triangle cap
-      ctx.fillStyle = '#4ade80';
+      ctx.fillStyle = isPlaying ? '#4ade80' : '#22c55e';
       ctx.beginPath();
       ctx.moveTo(playheadX - 5, 0);
       ctx.lineTo(playheadX + 5, 0);
