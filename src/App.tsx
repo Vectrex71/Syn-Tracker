@@ -1240,9 +1240,21 @@ export default function App() {
     showToast(`Pattern ${activePattern.id.toString().padStart(2, '0')} cleared`);
   };
 
-  // Note preview playing (direct Web Audio routing)
+  // Note preview playing (direct Web Audio routing with reactive preview trigger)
+  const [activePreviewTrigger, setActivePreviewTrigger] = useState<{
+    midiNote: number;
+    sampleIndex: number;
+    timestamp: number;
+  } | null>(null);
+
   const handlePlayPreview = (midiNote: number, sample: TrackerSample) => {
     audioEngine.playNoteInstantly(midiNote, sample);
+    const sIndex = sample.id !== undefined ? sample.id : selectedSampleIndex;
+    setActivePreviewTrigger({
+      midiNote,
+      sampleIndex: sIndex,
+      timestamp: Date.now(),
+    });
   };
 
   const handleStopPreview = () => {
@@ -2150,6 +2162,7 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
             onSelectSample={setSelectedSampleIndex}
             onUpdateSample={handleUpdateSample}
             onPlayPreview={handlePlayPreview}
+            activePreviewTrigger={activePreviewTrigger}
             onAddSampleSlot={handleAddSampleSlot}
             onOpenAmigaVault={() => setIsAmigaVaultOpen(true)}
             onOpenSidSynth={() => {

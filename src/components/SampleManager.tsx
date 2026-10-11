@@ -81,6 +81,7 @@ interface SampleManagerProps {
   onSelectSample: (index: number) => void;
   onUpdateSample: (index: number, updated: Partial<TrackerSample>) => void;
   onPlayPreview: (midiNote: number, sample: TrackerSample) => void;
+  activePreviewTrigger?: { midiNote: number; sampleIndex: number; timestamp: number } | null;
   onAddSampleSlot?: () => void;
   onOpenAmigaVault?: () => void;
   onOpenSidSynth?: () => void;
@@ -100,6 +101,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
   onSelectSample,
   onUpdateSample,
   onPlayPreview,
+  activePreviewTrigger,
   onAddSampleSlot,
   onOpenAmigaVault,
   onOpenSidSynth,
@@ -128,46 +130,57 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
   const previewStartTimeRef = useRef<number>(0);
   const previewDurationRef = useRef<number>(0);
 
-  const handlePlayPreview = useCallback((note: number, sample: TrackerSample) => {
-    onPlayPreview(note, sample);
-    if (sample.buffer) {
-      if (previewRafRef.current) {
-        cancelAnimationFrame(previewRafRef.current);
+  const handlePlayheadAnimation = useCallback((note: number, sample: TrackerSample) => {
+    if (!sample || !sample.buffer) return;
+    if (previewRafRef.current) {
+      cancelAnimationFrame(previewRafRef.current);
+      previewRafRef.current = null;
+    }
+    const pitchRatio = Math.pow(2, (note - (sample.baseNote || 36)) / 12);
+    const effectiveRate = Math.max(0.05, pitchRatio);
+    const rawDur = sample.buffer.duration / effectiveRate;
+    previewDurationRef.current = sample.loopEnabled ? Math.max(rawDur, 1.5) : rawDur;
+    previewStartTimeRef.current = performance.now();
+    setPreviewProgress(0);
+
+    const updatePlayhead = () => {
+      const elapsed = (performance.now() - previewStartTimeRef.current) / 1000;
+      if (elapsed < previewDurationRef.current) {
+        if (sample.loopEnabled && sample.buffer && sample.loopEnd > sample.loopStart) {
+          const sRate = sample.buffer.sampleRate;
+          const lStartSec = (sample.loopStart || 0) / sRate / effectiveRate;
+          const lEndSec = (sample.loopEnd || sample.buffer.length) / sRate / effectiveRate;
+          const loopLenSec = Math.max(0.01, lEndSec - lStartSec);
+          let curSec = elapsed;
+          if (curSec > lStartSec) {
+            curSec = lStartSec + ((curSec - lStartSec) % loopLenSec);
+          }
+          const prog = curSec / rawDur;
+          setPreviewProgress(Math.min(1, Math.max(0, prog)));
+        } else {
+          setPreviewProgress(Math.min(1, elapsed / previewDurationRef.current));
+        }
+        previewRafRef.current = requestAnimationFrame(updatePlayhead);
+      } else {
+        setPreviewProgress(null);
         previewRafRef.current = null;
       }
-      const pitchRatio = Math.pow(2, (note - (sample.baseNote || 36)) / 12);
-      const effectiveRate = Math.max(0.05, pitchRatio);
-      const rawDur = sample.buffer.duration / effectiveRate;
-      previewDurationRef.current = sample.loopEnabled ? Math.max(rawDur, 1.5) : rawDur;
-      previewStartTimeRef.current = performance.now();
-      setPreviewProgress(0);
+    };
+    previewRafRef.current = requestAnimationFrame(updatePlayhead);
+  }, []);
 
-      const updatePlayhead = () => {
-        const elapsed = (performance.now() - previewStartTimeRef.current) / 1000;
-        if (elapsed < previewDurationRef.current) {
-          if (sample.loopEnabled && sample.buffer && sample.loopEnd > sample.loopStart) {
-            const sRate = sample.buffer.sampleRate;
-            const lStartSec = (sample.loopStart || 0) / sRate / effectiveRate;
-            const lEndSec = (sample.loopEnd || sample.buffer.length) / sRate / effectiveRate;
-            const loopLenSec = Math.max(0.01, lEndSec - lStartSec);
-            let curSec = elapsed;
-            if (curSec > lStartSec) {
-              curSec = lStartSec + ((curSec - lStartSec) % loopLenSec);
-            }
-            const prog = curSec / rawDur;
-            setPreviewProgress(Math.min(1, Math.max(0, prog)));
-          } else {
-            setPreviewProgress(Math.min(1, elapsed / previewDurationRef.current));
-          }
-          previewRafRef.current = requestAnimationFrame(updatePlayhead);
-        } else {
-          setPreviewProgress(null);
-          previewRafRef.current = null;
-        }
-      };
-      previewRafRef.current = requestAnimationFrame(updatePlayhead);
+  const handlePlayPreview = useCallback((note: number, sample: TrackerSample) => {
+    onPlayPreview(note, sample);
+    handlePlayheadAnimation(note, sample);
+  }, [onPlayPreview, handlePlayheadAnimation]);
+
+  // Jedes Mal wenn eine Taste gedrückt wird, die das Sample in einer Tonhöhe abspielt
+  useEffect(() => {
+    if (!activePreviewTrigger) return;
+    if (activePreviewTrigger.sampleIndex === selectedSampleIndex && activeSample?.buffer) {
+      handlePlayheadAnimation(activePreviewTrigger.midiNote, activeSample);
     }
-  }, [onPlayPreview]);
+  }, [activePreviewTrigger, selectedSampleIndex, activeSample, handlePlayheadAnimation]);
 
   useEffect(() => {
     return () => {
@@ -298,20 +311,16 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.stroke();
       }
 
-      // Draw Playhead cursor in classic retro phosphor green (always visible, glowing during audition)
-      if (buffer && buffer.length > 0) {
-        const isAuditioning = previewProgress !== null;
-        const prog = isAuditioning
-          ? previewProgress
-          : (selectionRange ? Math.min(selectionRange.start, selectionRange.end) / buffer.length : 0);
-        const playheadX = Math.max(2, Math.min(width - 2, prog * width));
+      // Draw Playhead cursor in classic retro phosphor green ONLY when actively playing/auditioning!
+      if (buffer && buffer.length > 0 && previewProgress !== null) {
+        const playheadX = Math.max(2, Math.min(width - 2, previewProgress * width));
 
         ctx.save();
         // Retro phosphor tracker green (#22c55e / #4ade80)
-        ctx.strokeStyle = isAuditioning ? '#22c55e' : '#10b981';
-        ctx.lineWidth = isAuditioning ? 2.5 : 2;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2.5;
         ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = isAuditioning ? 10 : 4;
+        ctx.shadowBlur = 10;
 
         ctx.beginPath();
         ctx.moveTo(playheadX, 0);
@@ -320,7 +329,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.shadowBlur = 0;
 
         // Top triangle cap
-        ctx.fillStyle = isAuditioning ? '#4ade80' : '#22c55e';
+        ctx.fillStyle = '#4ade80';
         ctx.beginPath();
         ctx.moveTo(playheadX - 5, 0);
         ctx.lineTo(playheadX + 5, 0);
