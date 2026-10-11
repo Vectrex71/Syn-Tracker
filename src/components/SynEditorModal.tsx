@@ -1662,9 +1662,6 @@ export const SynEditorModal: React.FC<SynEditorModalProps> = ({
                       SYN-EDITOR
                     </span>
                   </div>
-                  <div className="text-[10.5px] font-mono font-bold truncate text-sky-400">
-                    Slot {activeSlot.toString().padStart(2, '0')}: {sampleName || 'Empty'}
-                  </div>
                 </div>
               </div>
 
