@@ -431,18 +431,17 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
       }
       ctx.stroke();
 
-      // Draw Playhead cursor line (always visible whenever playing or auditioned)
+      // Draw Playhead cursor line (always visible in retro green, glowing when auditioned)
       const isAuditioning = playheadProgress !== null;
       const progressVal = isAuditioning ? playheadProgress : 0;
-      const playheadX = Math.max(0, Math.min(width, progressVal * width));
+      const playheadX = Math.max(2, Math.min(width - 2, progressVal * width));
 
       ctx.save();
-      ctx.strokeStyle = isAuditioning ? '#fbbf24' : '#38bdf8';
-      ctx.lineWidth = isAuditioning ? 2 : 1.5;
-      if (isAuditioning) {
-        ctx.shadowColor = '#fbbf24';
-        ctx.shadowBlur = 6;
-      }
+      ctx.strokeStyle = isAuditioning ? '#22c55e' : '#10b981';
+      ctx.lineWidth = isAuditioning ? 2.5 : 2;
+      ctx.shadowColor = '#22c55e';
+      ctx.shadowBlur = isAuditioning ? 8 : 3;
+
       ctx.beginPath();
       ctx.moveTo(playheadX, 0);
       ctx.lineTo(playheadX, height);
@@ -450,13 +449,22 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
       ctx.shadowBlur = 0;
 
       // Playhead top marker
-      ctx.fillStyle = isAuditioning ? '#fbbf24' : '#38bdf8';
+      ctx.fillStyle = isAuditioning ? '#4ade80' : '#22c55e';
       ctx.beginPath();
       ctx.moveTo(playheadX - 3, 0);
       ctx.lineTo(playheadX + 3, 0);
       ctx.lineTo(playheadX, 5);
       ctx.closePath();
       ctx.fill();
+
+      // Playhead bottom marker
+      ctx.beginPath();
+      ctx.moveTo(playheadX - 3, height);
+      ctx.lineTo(playheadX + 3, height);
+      ctx.lineTo(playheadX, height - 5);
+      ctx.closePath();
+      ctx.fill();
+
       ctx.restore();
     }
   }, [previewAudioBuffer, playheadProgress]);

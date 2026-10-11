@@ -298,21 +298,21 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.stroke();
       }
 
-      // Draw Playhead cursor (always visible when audio loaded, dynamically moving during audition)
+      // Draw Playhead cursor in classic retro phosphor green (always visible, glowing during audition)
       if (buffer && buffer.length > 0) {
         const isAuditioning = previewProgress !== null;
         const prog = isAuditioning
           ? previewProgress
           : (selectionRange ? Math.min(selectionRange.start, selectionRange.end) / buffer.length : 0);
-        const playheadX = Math.max(0, Math.min(width, prog * width));
+        const playheadX = Math.max(2, Math.min(width - 2, prog * width));
 
         ctx.save();
-        ctx.strokeStyle = isAuditioning ? '#fbbf24' : '#38bdf8';
-        ctx.lineWidth = isAuditioning ? 2 : 1.5;
-        if (isAuditioning) {
-          ctx.shadowColor = '#fbbf24';
-          ctx.shadowBlur = 8;
-        }
+        // Retro phosphor tracker green (#22c55e / #4ade80)
+        ctx.strokeStyle = isAuditioning ? '#22c55e' : '#10b981';
+        ctx.lineWidth = isAuditioning ? 2.5 : 2;
+        ctx.shadowColor = '#22c55e';
+        ctx.shadowBlur = isAuditioning ? 10 : 4;
+
         ctx.beginPath();
         ctx.moveTo(playheadX, 0);
         ctx.lineTo(playheadX, height);
@@ -320,13 +320,22 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.shadowBlur = 0;
 
         // Top triangle cap
-        ctx.fillStyle = isAuditioning ? '#fbbf24' : '#38bdf8';
+        ctx.fillStyle = isAuditioning ? '#4ade80' : '#22c55e';
         ctx.beginPath();
-        ctx.moveTo(playheadX - 4, 0);
-        ctx.lineTo(playheadX + 4, 0);
-        ctx.lineTo(playheadX, 6);
+        ctx.moveTo(playheadX - 5, 0);
+        ctx.lineTo(playheadX + 5, 0);
+        ctx.lineTo(playheadX, 7);
         ctx.closePath();
         ctx.fill();
+
+        // Bottom triangle cap
+        ctx.beginPath();
+        ctx.moveTo(playheadX - 5, height);
+        ctx.lineTo(playheadX + 5, height);
+        ctx.lineTo(playheadX, height - 7);
+        ctx.closePath();
+        ctx.fill();
+
         ctx.restore();
       }
     }

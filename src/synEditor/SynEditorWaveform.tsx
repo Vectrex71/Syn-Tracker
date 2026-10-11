@@ -424,16 +424,16 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
       }
     }
 
-    // Draw Playhead Cursor (always visible when audio loaded, glowing when playing)
+    // Draw Playhead Cursor (always visible when audio loaded, glowing green when playing)
     if (currentBuffer && playheadFrame >= startSample && playheadFrame <= endSample) {
-      const playheadX = ((playheadFrame - startSample) / sampleWindow) * width;
+      const playheadX = Math.max(2, Math.min(width - 2, ((playheadFrame - startSample) / sampleWindow) * width));
       ctx.save();
-      ctx.strokeStyle = isPlaying ? '#fbbf24' : '#38bdf8';
-      ctx.lineWidth = isPlaying ? 2 : 1.5;
-      if (isPlaying) {
-        ctx.shadowColor = '#fbbf24';
-        ctx.shadowBlur = 8;
-      }
+      // Retro tracker phosphor green (#22c55e / #4ade80)
+      ctx.strokeStyle = isPlaying ? '#22c55e' : '#10b981';
+      ctx.lineWidth = isPlaying ? 2.5 : 2;
+      ctx.shadowColor = '#22c55e';
+      ctx.shadowBlur = isPlaying ? 10 : 4;
+
       ctx.beginPath();
       ctx.moveTo(playheadX, 0);
       ctx.lineTo(playheadX, height);
@@ -441,13 +441,22 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
       ctx.shadowBlur = 0;
 
       // Top triangle cap
-      ctx.fillStyle = isPlaying ? '#fbbf24' : '#38bdf8';
+      ctx.fillStyle = isPlaying ? '#4ade80' : '#22c55e';
       ctx.beginPath();
       ctx.moveTo(playheadX - 5, 0);
       ctx.lineTo(playheadX + 5, 0);
       ctx.lineTo(playheadX, 8);
       ctx.closePath();
       ctx.fill();
+
+      // Bottom triangle cap
+      ctx.beginPath();
+      ctx.moveTo(playheadX - 5, height);
+      ctx.lineTo(playheadX + 5, height);
+      ctx.lineTo(playheadX, height - 8);
+      ctx.closePath();
+      ctx.fill();
+
       ctx.restore();
     }
   }, [currentBuffer, selection, loopEnabled, loopStart, loopEnd, isPlaying, playheadFrame, viewMode, zoom, scrollOffset]);
