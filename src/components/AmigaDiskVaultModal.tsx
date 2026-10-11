@@ -263,6 +263,8 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
       `/samples/st_disks/${diskId}/${encodeURIComponent(trimmed)}`,
       `/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
       `/amiga_st/samples/${diskId}/${encodeURIComponent(cleanBase)}`,
+      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@main/public/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
+      `https://raw.githubusercontent.com/Vectrex71/Syn-Tracker/main/public/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
     ];
 
     for (const url of candidateUrls) {
