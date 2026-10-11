@@ -29,6 +29,7 @@ import { TrackerSample, KeyboardLayout } from '../types';
 import { saveSampleData } from '../lib/indexedDB';
 import { arrayBufferToBase64 } from '../utils/modFormat';
 import { decodeAudioBufferSafe } from '../utils/audioDecoder';
+import { audioEngine } from '../lib/audioEngine';
 
 // Colorful Amiga 3.5" Floppy Disk PNG images
 const DISK_COLOR_IMAGES = [
@@ -312,7 +313,8 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
   // Play preview of a sample at specific MIDI pitch (keeps sample in memory)
   const playPreview = useCallback(async (diskId: string, sampleName: string, midiNote: number = 36) => {
     stopPreview();
-    const ctx = getContext();
+    audioEngine.init();
+    const ctx = audioEngine.ctx || getContext();
     if (!ctx) return;
 
     setLoadingAudio(sampleName);
@@ -346,10 +348,14 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
       src.playbackRate.value = semitoneRatio;
 
       const gain = ctx.createGain();
-      // Calibrated to match tracker playback level (Paula 64 volume through master engine at ~0.35)
-      gain.gain.value = 0.35;
+      // Exact ProTracker Paula 64 level into master bus (0.38 into masterGain)
+      gain.gain.value = 0.38;
       src.connect(gain);
-      gain.connect(ctx.destination);
+      if (audioEngine.masterGain) {
+        gain.connect(audioEngine.masterGain);
+      } else {
+        gain.connect(ctx.destination);
+      }
 
       src.onended = () => {
         if (activeSourceRef.current === src) {

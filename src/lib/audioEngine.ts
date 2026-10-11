@@ -1260,31 +1260,55 @@ export class AudioEngine {
     }
 
     if (sourceNode) {
-      // Crisp ADSR Envelope
-      gainNode.gain.cancelScheduledValues(now);
-      gainNode.gain.setValueAtTime(0.0001, now);
-      gainNode.gain.linearRampToValueAtTime(volume, now + attack);
-      
-      const effectiveSustain = Math.max(0.15, sustain);
-      gainNode.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume * effectiveSustain), now + attack + decay);
+      if (sample.sourceType === 'synth') {
+        // Crisp ADSR Envelope for Synthesizers (C64, SID, NES, GameBoy)
+        gainNode.gain.cancelScheduledValues(now);
+        gainNode.gain.setValueAtTime(0.0001, now);
+        gainNode.gain.linearRampToValueAtTime(volume, now + attack);
+        
+        const effectiveSustain = Math.max(0.15, sustain);
+        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume * effectiveSustain), now + attack + decay);
 
-      const releaseStart = Math.max(now + attack + decay + 0.05, now + previewDuration - release);
-      gainNode.gain.setValueAtTime(Math.max(0.0001, volume * effectiveSustain), releaseStart);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, releaseStart + release);
+        const releaseStart = Math.max(now + attack + decay + 0.05, now + previewDuration - release);
+        gainNode.gain.setValueAtTime(Math.max(0.0001, volume * effectiveSustain), releaseStart);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, releaseStart + release);
 
-      sourceNode.connect(gainNode);
-      sourceNode.start(now);
-      
-      const cleanupPreviewNodes = () => {
-        try { sourceNode?.disconnect(); } catch (e) {}
-        try { gainNode.disconnect(); } catch (e) {}
-        try { panNode.disconnect(); } catch (e) {}
-      };
-      sourceNode.onended = cleanupPreviewNodes;
+        sourceNode.connect(gainNode);
+        sourceNode.start(now);
+        
+        const cleanupPreviewNodes = () => {
+          try { sourceNode?.disconnect(); } catch (e) {}
+          try { gainNode.disconnect(); } catch (e) {}
+          try { panNode.disconnect(); } catch (e) {}
+        };
+        sourceNode.onended = cleanupPreviewNodes;
 
-      try {
-        sourceNode.stop(releaseStart + release + 0.02);
-      } catch (e) {}
+        try {
+          sourceNode.stop(releaseStart + release + 0.02);
+        } catch (e) {}
+      } else {
+        // Authentic Amiga PCM Sample: Constant transparent Paula level (matches full volume 64 / pattern playback)
+        gainNode.gain.cancelScheduledValues(now);
+        gainNode.gain.setValueAtTime(volume, now);
+
+        const releaseStart = now + previewDuration;
+        gainNode.gain.setValueAtTime(volume, releaseStart);
+        gainNode.gain.linearRampToValueAtTime(0.0001, releaseStart + 0.04);
+
+        sourceNode.connect(gainNode);
+        sourceNode.start(now);
+
+        const cleanupPreviewNodes = () => {
+          try { sourceNode?.disconnect(); } catch (e) {}
+          try { gainNode.disconnect(); } catch (e) {}
+          try { panNode.disconnect(); } catch (e) {}
+        };
+        sourceNode.onended = cleanupPreviewNodes;
+
+        try {
+          sourceNode.stop(releaseStart + 0.05);
+        } catch (e) {}
+      }
 
       this.previewSource = sourceNode;
       this.previewGainNode = gainNode;
