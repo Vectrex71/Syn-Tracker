@@ -615,14 +615,14 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
           <span className="uppercase tracking-wider text-[11px] text-[#f8fafc] font-display">Instruments</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {onLoadStKit && (
             <button
               onClick={onLoadStKit}
-              className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-semibold cursor-pointer bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 hover:text-white flex items-center gap-1 shadow-xs transition-colors"
+              className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-semibold cursor-pointer bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 hover:text-white flex items-center gap-1 shadow-xs transition-colors shrink-0 whitespace-nowrap"
               title="Lade klassisches ST-01 Amiga Sound-Set (BassDrum4, HiHat, Bass, Lead, etc.)"
             >
-              <Zap className="w-3 h-3 text-emerald-400" />
+              <Zap className="w-3 h-3 text-emerald-400 shrink-0" />
               <span>ST-01 Kit</span>
             </button>
           )}
@@ -630,26 +630,14 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
           {onRestoreAutoSave && (
             <button
               onClick={onRestoreAutoSave}
-              className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-semibold cursor-pointer bg-sky-950/70 hover:bg-sky-900 border border-sky-500/50 text-sky-300 hover:text-white flex items-center gap-1 shadow-xs transition-colors"
-              title="Letzte gespeicherte Samples / Session wiederherstellen"
+              className="w-6 h-6 rounded cursor-pointer bg-sky-950/70 hover:bg-sky-900 border border-sky-500/50 text-sky-300 hover:text-white flex items-center justify-center shadow-xs transition-colors shrink-0"
+              title="Letzte gespeicherte Samples / Session wiederherstellen (Restore)"
             >
-              <RotateCcw className="w-3 h-3 text-sky-400" />
-              <span>Restore</span>
+              <RotateCcw className="w-3.5 h-3.5 text-sky-400" />
             </button>
           )}
 
-          {onAddSampleSlot && samples.length < 32 && (
-            <button
-              onClick={onAddSampleSlot}
-              className="h-6 px-2 rounded text-[10.5px] font-medium cursor-pointer aqua-gloss aqua-dark text-slate-300 hover:text-white flex items-center gap-1 shadow-sm transition-colors border border-white/10"
-              title="Add New Instrument Slot"
-            >
-              <Plus className="w-3 h-3" />
-              <span>Slot</span>
-            </button>
-          )}
-
-          {activeSample && activeSample.buffer && (
+          {activeSample && (activeSample.buffer || (activeSample.name && activeSample.name !== '' && activeSample.name !== 'Empty')) && (
             <button
               onClick={() => {
                 onUpdateSample(selectedSampleIndex, {
@@ -660,11 +648,21 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                   loopLength: 0,
                 });
               }}
-              className="h-6 px-2 rounded text-[10.5px] font-medium cursor-pointer aqua-gloss aqua-dark text-[#94a3b8] hover:text-rose-400 flex items-center gap-1 shadow-sm transition-colors border border-white/10"
-              title="Clear current sample slot"
+              className="w-6 h-6 rounded flex items-center justify-center cursor-pointer aqua-gloss aqua-dark text-[#94a3b8] hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-950/30 shadow-xs transition-colors border border-white/10 shrink-0"
+              title="Aktuellen Instrumenten-Slot leeren (Clear)"
             >
-              <Trash2 className="w-3 h-3" />
-              <span>Clear</span>
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {onAddSampleSlot && samples.length < 32 && (
+            <button
+              onClick={onAddSampleSlot}
+              className="h-6 px-1.5 rounded text-[10px] font-medium cursor-pointer aqua-gloss aqua-dark text-slate-300 hover:text-white flex items-center gap-0.5 shadow-xs transition-colors border border-white/10 shrink-0 whitespace-nowrap"
+              title="Add New Instrument Slot"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Slot</span>
             </button>
           )}
         </div>
