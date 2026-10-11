@@ -620,7 +620,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
             <button
               onClick={onLoadStKit}
               className="h-6 px-1.5 sm:px-2 rounded text-[10px] font-semibold cursor-pointer bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 hover:text-white flex items-center gap-1 shadow-xs transition-colors shrink-0 whitespace-nowrap"
-              title="Lade klassisches ST-01 Amiga Sound-Set (BassDrum4, HiHat, Bass, Lead, etc.)"
+              title="Load classic ST-01 Amiga sound set (BassDrum4, CloseHiHat, DeepBass, etc.)"
             >
               <Zap className="w-3 h-3 text-emerald-400 shrink-0" />
               <span>ST-01 Kit</span>
@@ -631,7 +631,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
             <button
               onClick={onRestoreAutoSave}
               className="w-6 h-6 rounded cursor-pointer bg-sky-950/70 hover:bg-sky-900 border border-sky-500/50 text-sky-300 hover:text-white flex items-center justify-center shadow-xs transition-colors shrink-0"
-              title="Letzte gespeicherte Samples / Session wiederherstellen (Restore)"
+              title="Restore last auto-saved session and instruments"
             >
               <RotateCcw className="w-3.5 h-3.5 text-sky-400" />
             </button>
@@ -649,7 +649,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                 });
               }}
               className="w-6 h-6 rounded flex items-center justify-center cursor-pointer aqua-gloss aqua-dark text-[#94a3b8] hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-950/30 shadow-xs transition-colors border border-white/10 shrink-0"
-              title="Aktuellen Instrumenten-Slot leeren (Clear)"
+              title="Clear current instrument slot"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
