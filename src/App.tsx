@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { HardDrive, Upload, AlertTriangle, Trash2 } from 'lucide-react';
 
-import { TrackerSong, TrackerPattern, TrackerStep, TrackerSample, KeyboardLayout, RetroChipSystem } from './types';
+import { TrackerSong, TrackerPattern, TrackerStep, TrackerSample, KeyboardLayout, RetroChipSystem, NumberBase, TrackerKeybindingMode } from './types';
 import { audioEngine } from './lib/audioEngine';
 import { saveLocalSong, loadLocalSong, saveAutoSaveSession, getAutoSaveSession, clearAutoSaveSession, AUTOSAVE_BACKUP_KEY } from './lib/indexedDB';
 import { parseMODFile, exportMODFile, arrayBufferToBase64 } from './utils/modFormat';
@@ -129,6 +129,22 @@ export default function App() {
   const handleKeyboardLayoutChange = (layout: KeyboardLayout) => {
     setKeyboardLayout(layout);
     localStorage.setItem('syn_tracker_kbd_layout', layout);
+  };
+
+  const [keybindingMode, setKeybindingMode] = useState<TrackerKeybindingMode>(() => {
+    return (localStorage.getItem('syn_tracker_keybinding_mode') as TrackerKeybindingMode) || 'tracker';
+  });
+  const handleKeybindingModeChange = (mode: TrackerKeybindingMode) => {
+    setKeybindingMode(mode);
+    localStorage.setItem('syn_tracker_keybinding_mode', mode);
+  };
+
+  const [numberBase, setNumberBase] = useState<NumberBase>(() => {
+    return (localStorage.getItem('syn_tracker_number_base') as NumberBase) || 'hex';
+  });
+  const handleNumberBaseChange = (base: NumberBase) => {
+    setNumberBase(base);
+    localStorage.setItem('syn_tracker_number_base', base);
   };
   const [selectedSampleIndex, setSelectedSampleIndex] = useState<number>(0);
   const [currentOrderIndex, setCurrentOrderIndex] = useState<number>(0);
@@ -500,6 +516,8 @@ export default function App() {
   handleRedoRef.current = handleRedo;
   const handleOpenSaveModalRef = useRef(handleOpenSaveModal);
   handleOpenSaveModalRef.current = handleOpenSaveModal;
+  const keybindingModeRef = useRef(keybindingMode);
+  keybindingModeRef.current = keybindingMode;
 
   const updateSongWithUndo = useCallback((updater: (prev: TrackerSong) => TrackerSong) => {
     const currentSong = songRef.current;
@@ -641,19 +659,57 @@ export default function App() {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        if (isPlayingRef.current) {
-          handlePauseRef.current();
+        if (keybindingModeRef.current === 'tracker') {
+          if (e.shiftKey) {
+            // Shift+Space: Play from beginning (Row 00)
+            setCurrentLine(0);
+            audioEngine.currentLine = 0;
+            handlePlayRef.current();
+          } else {
+            // Tracker mode standard (FT2/MilkyTracker): Space toggles Edit / Record Mode! (BUG-01)
+            setIsEditMode((prev) => !prev);
+          }
         } else {
-          handlePlayRef.current();
+          // DAW mode: Space toggles Play / Pause
+          if (isPlayingRef.current) {
+            handlePauseRef.current();
+          } else {
+            handlePlayRef.current();
+          }
         }
         return;
+      }
+
+      // Enter / Return key: In Tracker mode, Enter toggles playback
+      if (e.key === 'Enter' || e.code === 'Enter') {
+        if (keybindingModeRef.current === 'tracker') {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          if (e.shiftKey) {
+            setCurrentLine(0);
+            audioEngine.currentLine = 0;
+            handlePlayRef.current();
+          } else {
+            if (isPlayingRef.current) {
+              handlePauseRef.current();
+            } else {
+              handlePlayRef.current();
+            }
+          }
+          return;
+        }
       }
 
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        setIsEditMode((prev) => !prev);
+        if (isPlayingRef.current) {
+          handlePauseRef.current();
+        } else {
+          setIsEditMode((prev) => !prev);
+        }
         return;
       }
     };
@@ -692,6 +748,8 @@ export default function App() {
     const audioCtx = audioEngine.ctx;
 
     let newSong: TrackerSong;
+    // Authentic retro hardware default: Reset master effects (reverb, delay, master filter) to clean bypass (BUG-10)
+    audioEngine.resetMasterFxToCleanHardware();
 
     if (template === 'empty' || template === 'trk') {
       setActiveChipSystem('trk');
@@ -2040,6 +2098,8 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
             bpm={song.bpm}
             speed={song.speed}
             activeChipSystem={activeChipSystem}
+            numberBase={numberBase}
+            keybindingMode={keybindingMode}
             onChangeBpm={handleBpmChange}
             onChangeSpeed={handleSpeedChange}
             onChangeOctave={setActiveOctave}
@@ -2082,6 +2142,7 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
             selectedSampleIndex={selectedSampleIndex}
             audioCtx={audioEngine.ctx}
             keyboardLayout={keyboardLayout}
+            numberBase={numberBase}
             activeChipSystem={activeChipSystem}
             isFxRackOpen={isFxRackOpen}
             onToggleFxRack={() => setIsFxRackOpen((prev) => !prev)}
@@ -2157,6 +2218,11 @@ function audioBufferToWavArrayBuffer(audioBuffer: AudioBuffer): ArrayBuffer {
         onChangeHighlightRows={setHighlightRows}
         songName={song.name}
         onChangeSongName={handleUpdateSongName}
+        activeChipSystem={activeChipSystem}
+        numberBase={numberBase}
+        onChangeNumberBase={handleNumberBaseChange}
+        keybindingMode={keybindingMode}
+        onChangeKeybindingMode={handleKeybindingModeChange}
       />
 
       <HelpDialog 

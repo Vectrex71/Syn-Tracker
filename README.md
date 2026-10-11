@@ -4,14 +4,13 @@
 > *Completely Free · No Subscription · 100% In-Browser*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-Vectrex71%2FSyn--Tracker-181717.svg?logo=github)](https://github.com/Vectrex71/Syn-Tracker)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/Bundler-Vite-646CFF.svg)](https://vitejs.dev/)
 [![Bluesky](https://img.shields.io/badge/Bluesky-@hj--wuethrich.bsky.social-0285FF.svg)](https://bsky.app/profile/hj-wuethrich.bsky.social)
 
 **SYN-Tracker** is a powerful, fully-featured retro music workstation running directly in the browser. It combines the tactile workflow of classic tracker software (like ProTracker, FastTracker II, MilkyTracker, and DefleMask) with modern WebAudio DSP synthesis, video visualizers, and versatile export options.
-
-<img width="1919" height="1029" alt="Screenshot 2026-09-17 14 32 02" src="https://github.com/user-attachments/assets/f5930e54-a0ad-481e-91f3-f34e501414cf" />
 
 ---
 
@@ -33,21 +32,14 @@
 - 🎚️ **Integrated Synth & Instrument Editor:**
   - Custom ADSR envelopes, LFO modulators, wavetables, and macros.
   - Built-in sample editor with trim, normalize, reverse, pitch tuning, and loop-point tools.
- 
-  <img width="1919" height="1029" alt="Screenshot 2026-09-17 14 32 30" src="https://github.com/user-attachments/assets/649393d7-b03d-4113-9975-5e9fcb89e9a0" />
-
 
 - 🎥 **Visualizer Studio & Video Export:**
   - Generate retro-styled music videos for your tracks directly inside your browser.
   - Multiple visualizer themes: Oscilloscope, Neon Tunnel, Starfield, Aurora Waves, Cyber City, and Hyperspace.
   - Export HD video in multiple aspect ratios (16:9 for YouTube/Desktop, 9:16 for Reels/TikTok, or 1:1 for Instagram).
 
-  <img width="1919" height="1029" alt="Screenshot 2026-09-17 14 32 55" src="https://github.com/user-attachments/assets/e4ec5b4c-a77d-447b-bef0-6c6b9946f6f4" />
-
 - 🎨 **Retro Cover Designer:**
   - Create pixel-perfect physical media art for your releases (3.5" Floppy Disk, Cassette Tape, and CD Jewel Case mockups).
-
-<img width="1919" height="1029" alt="Screenshot 2026-09-17 14 33 59" src="https://github.com/user-attachments/assets/2c66daa7-f4b2-4a71-8f89-c9dc68f5d7d7" />
 
 - 💾 **Comprehensive Export & Import Options:**
   - **Audio formats:** WAV, MP3, OGG, FLAC, and unmixed multi-track stems.

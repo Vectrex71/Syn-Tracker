@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Plus, Trash, ArrowUp, ArrowDown, GripVertical, Sparkles, Settings, HelpCircle } from 'lucide-react';
+import { Plus, Trash, ArrowUp, ArrowDown, GripVertical, Sparkles, Settings, HelpCircle, Github } from 'lucide-react';
 
 interface OrderListProps {
   orderList: number[];
@@ -319,36 +319,46 @@ export const OrderList: React.FC<OrderListProps> = ({
             />
           </a>
 
+          <a
+            href="https://github.com/Vectrex71/Syn-Tracker"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-7 px-1.5 rounded-md flex items-center justify-center gap-1.5 cursor-pointer aqua-gloss aqua-dark text-[#cbd5e1] hover:text-white transition-all active:scale-95 group border border-slate-700/80 hover:border-slate-500 bg-[#131b2b]/90 hover:bg-[#1a253a]"
+            title="GitHub: Vectrex71/Syn-Tracker"
+          >
+            <Github className="w-3.5 h-3.5 text-slate-400 group-hover:text-white shrink-0 transition-colors" />
+            <span className="text-[10px] sm:text-[10.5px] font-mono font-medium truncate">GitHub</span>
+          </a>
+        </div>
+
+        <div className={`grid ${onStartTutorial ? 'grid-cols-3' : 'grid-cols-2'} gap-1`}>
           {onStartTutorial && (
             <button
               onClick={onStartTutorial}
-              className="h-7 px-1.5 rounded-md flex items-center justify-center gap-1 cursor-pointer border border-slate-700/80 hover:border-slate-500 bg-[#131b2b]/90 hover:bg-[#1a253a] text-slate-300 hover:text-white font-mono text-[10px] sm:text-[10.5px] transition-all active:scale-95"
+              className="h-7 px-1 rounded-md flex items-center justify-center gap-1 cursor-pointer border border-slate-700/80 hover:border-slate-500 bg-[#131b2b]/90 hover:bg-[#1a253a] text-slate-300 hover:text-white font-mono text-[10px] transition-all active:scale-95"
               title="Interactive Tour"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
               <span className="truncate">Tour</span>
             </button>
           )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-1.5">
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="h-7 px-1.5 rounded-md flex items-center justify-center gap-1 cursor-pointer aqua-gloss aqua-dark text-[#cbd5e1] hover:text-white text-[10px] sm:text-[10.5px] font-medium transition-all active:scale-95"
+              className="h-7 px-1 rounded-md flex items-center justify-center gap-1 cursor-pointer aqua-gloss aqua-dark text-[#cbd5e1] hover:text-white text-[10px] font-medium transition-all active:scale-95"
               title="Settings & Audio-Setup"
             >
-              <Settings className="w-3.5 h-3.5 text-[#94a3b8] shrink-0" />
-              <span className="truncate">Settings</span>
+              <Settings className="w-3 h-3 text-[#94a3b8] shrink-0" />
+              <span className="truncate">Config</span>
             </button>
           )}
           {onToggleHelp && (
             <button
               onClick={onToggleHelp}
-              className="h-7 px-1.5 rounded-md flex items-center justify-center gap-1 cursor-pointer aqua-gloss aqua-dark text-[#cbd5e1] hover:text-white text-[10px] sm:text-[10.5px] font-medium transition-all active:scale-95"
+              className="h-7 px-1 rounded-md flex items-center justify-center gap-1 cursor-pointer aqua-gloss aqua-dark text-[#cbd5e1] hover:text-white text-[10px] font-medium transition-all active:scale-95"
               title="ProTracker Manual & Keyboard Shortcuts (?)"
             >
-              <HelpCircle className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+              <HelpCircle className="w-3 h-3 text-[#38bdf8] shrink-0" />
               <span className="truncate">Help</span>
             </button>
           )}

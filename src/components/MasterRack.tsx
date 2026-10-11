@@ -38,13 +38,17 @@ export const MasterRack: React.FC<MasterRackProps> = ({
     }
   }, [isOpen]);
 
-  // Real-time Oscilloscope & Spectrum Visualizer
+  // Real-time Oscilloscope & Spectrum Visualizer (BUG-09: Optimized)
   useEffect(() => {
+    if (!isOpen) return;
     let animId: number;
     const canvas = scopeCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Cache themeColor once outside the 60fps render loop to eliminate layout thrashing
+    const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#38bdf8';
 
     const render = () => {
       animId = requestAnimationFrame(render);
@@ -72,8 +76,6 @@ export const MasterRack: React.FC<MasterRackProps> = ({
       }
 
       if (!audioEngine.analyser) return;
-
-      const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#38bdf8';
 
       if (scopeMode === 'spectrum') {
         const bufferLength = audioEngine.analyser.frequencyBinCount;

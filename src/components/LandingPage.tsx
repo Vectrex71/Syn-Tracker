@@ -22,7 +22,8 @@ import {
   ChevronRight,
   ExternalLink,
   HelpCircle,
-  Zap
+  Zap,
+  Github
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -279,6 +280,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 sm:gap-3 mr-12 sm:mr-16">
+          <a
+            href="https://github.com/Vectrex71/Syn-Tracker"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 sm:px-3 text-xs font-mono font-medium text-slate-300 hover:text-white bg-[#141d27]/90 hover:bg-[#1f2d3d] border border-[#27364a] hover:border-sky-500/50 rounded-md transition-all cursor-pointer shadow-sm group"
+            title="GitHub Repository (Vectrex71/Syn-Tracker)"
+          >
+            <Github className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
+            <span className="hidden sm:inline">GitHub</span>
+          </a>
           <button
             onClick={onStart}
             className="inline-flex items-center h-8 px-3.5 sm:px-4 text-xs font-mono font-bold text-black bg-sky-400 hover:bg-sky-300 rounded-md transition-colors cursor-pointer shadow-sm"
@@ -349,6 +360,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="sm:hidden">Tour</span>
                 </button>
               )}
+
+              <a
+                href="https://github.com/Vectrex71/Syn-Tracker"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl bg-[#0e1624] hover:bg-[#152033] border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-bold text-xs font-mono flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shadow-md active:scale-95 group"
+                title="View Source on GitHub: Vectrex71/Syn-Tracker"
+              >
+                <Github className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 group-hover:text-white transition-colors" />
+                <span className="hidden sm:inline">GitHub</span>
+                <span className="sm:hidden">Git</span>
+              </a>
             </div>
           </div>
 
@@ -1032,6 +1055,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             <div className="flex items-center gap-3 sm:gap-4">
+              <a
+                href="https://github.com/Vectrex71/Syn-Tracker"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#101827] hover:bg-[#172338] border border-slate-700/80 hover:border-slate-500 text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm group"
+                title="GitHub: Vectrex71/Syn-Tracker"
+              >
+                <Github className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform group-hover:scale-110" />
+                <span className="text-[11px] font-sans font-medium">GitHub</span>
+              </a>
+
               <a
                 href="https://bsky.app/profile/hj-wuethrich.bsky.social"
                 target="_blank"

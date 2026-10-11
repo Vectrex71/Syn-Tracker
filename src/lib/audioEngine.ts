@@ -186,6 +186,7 @@ export class AudioEngine {
   public soloedChannels: Set<number> = new Set();
   public channelAnalysers: { [channel: number]: AnalyserNode } = {};
   public channelGains: { [channel: number]: GainNode } = {};
+  private trackStateListeners: Set<() => void> = new Set();
 
   // Master FX Settings
   public fxSettings: MasterFxSettings = {
@@ -458,6 +459,34 @@ export class AudioEngine {
     this.saturationNode.curve = curve;
   }
 
+  public subscribeTrackStates(listener: () => void): () => void {
+    this.trackStateListeners.add(listener);
+    return () => {
+      this.trackStateListeners.delete(listener);
+    };
+  }
+
+  private notifyTrackStateListeners() {
+    this.trackStateListeners.forEach((fn) => {
+      try {
+        fn();
+      } catch (e) {
+        console.error('Error in trackStateListener:', e);
+      }
+    });
+  }
+
+  public getTrackStates(totalChannels: number = 16): Array<{ isMuted: boolean; isSoloed: boolean }> {
+    const states: Array<{ isMuted: boolean; isSoloed: boolean }> = [];
+    for (let i = 0; i < totalChannels; i++) {
+      states.push({
+        isMuted: this.mutedChannels.has(i),
+        isSoloed: this.soloedChannels.has(i),
+      });
+    }
+    return states;
+  }
+
   public setChannelMute(channelIndex: number, muted: boolean) {
     if (muted) {
       this.mutedChannels.add(channelIndex);
@@ -465,6 +494,7 @@ export class AudioEngine {
       this.mutedChannels.delete(channelIndex);
     }
     this.updateChannelGains();
+    this.notifyTrackStateListeners();
   }
 
   public setChannelSolo(channelIndex: number, soloed: boolean) {
@@ -474,6 +504,14 @@ export class AudioEngine {
       this.soloedChannels.delete(channelIndex);
     }
     this.updateChannelGains();
+    this.notifyTrackStateListeners();
+  }
+
+  public clearChannelMutesAndSolos() {
+    this.mutedChannels.clear();
+    this.soloedChannels.clear();
+    this.updateChannelGains();
+    this.notifyTrackStateListeners();
   }
 
   public isChannelMuted(channelIndex: number): boolean {
@@ -481,6 +519,17 @@ export class AudioEngine {
       return !this.soloedChannels.has(channelIndex);
     }
     return this.mutedChannels.has(channelIndex);
+  }
+
+  public resetMasterFxToCleanHardware() {
+    this.updateMasterFx({
+      delayEnabled: false,
+      reverbEnabled: false,
+      filterEnabled: false,
+      saturationEnabled: false,
+      stereoWidth: 0.70,
+      masterVolume: 0.85,
+    });
   }
 
   private updateChannelGains() {
@@ -776,13 +825,20 @@ export class AudioEngine {
 
   public allNotesOff() {
     this.stopPreviewNote();
+    const now = this.ctx ? this.ctx.currentTime : 0;
     Object.keys(this.activeChannelNodes).forEach((chKey) => {
       const ch = parseInt(chKey, 10);
       const chObj = this.activeChannelNodes[ch];
       if (chObj && chObj.source) {
         try {
-          chObj.source.stop();
-          chObj.source.disconnect();
+          if (this.ctx) {
+            chObj.gainNode.gain.cancelScheduledValues(now);
+            chObj.gainNode.gain.setValueAtTime(chObj.gainNode.gain.value, now);
+            chObj.gainNode.gain.linearRampToValueAtTime(0.0001, now + 0.004);
+            chObj.source.stop(now + 0.005);
+          } else {
+            chObj.source.stop();
+          }
         } catch (e) {
           // ignore
         }
@@ -866,8 +922,18 @@ export class AudioEngine {
     const instIdx = (step.instrument !== null) ? step.instrument : 
                     (this.activeChannelNodes[channelIndex]?.instrumentIndex);
     
-    // In tracker architecture: a note on an uninitialized channel with no instrument specified does not trigger
+    // In tracker architecture: if no note and no instrument on this row, but an effect exists, apply it!
+    if (!hasNote && step.instrument === null) {
+      if (step.effectCode) {
+        this.applyEffect(channelIndex, step.effectCode, step.effectVal ?? 0, time);
+      }
+      return;
+    }
+
     if ((instIdx === undefined || instIdx === null) && step.instrument === null) {
+      if (step.effectCode) {
+        this.applyEffect(channelIndex, step.effectCode, step.effectVal ?? 0, time);
+      }
       return;
     }
     const resolvedInstIdx = instIdx ?? 0;
@@ -929,8 +995,11 @@ export class AudioEngine {
     active.gainNode.gain.cancelScheduledValues(time);
     active.panNode.pan.cancelScheduledValues(time);
 
-    // Update volume64 scale based on step input
-    if (step.volume !== null) {
+    // Update volume64 scale based on step input:
+    // Effect Cxx takes precedence over instrument default volume!
+    if (effectCodeUpper === 'C') {
+      active.volume64 = Math.min(64, Math.max(0, effectVal));
+    } else if (step.volume !== null) {
       active.volume64 = Math.min(64, Math.max(0, step.volume));
     } else if (step.instrument !== null) {
       // ProTracker Rule: Volume is reset to sample default when an explicit instrument number is provided
@@ -1344,17 +1413,73 @@ export class AudioEngine {
    */
   private applyEffect(channelIndex: number, code: string, val: number, time: number) {
     if (!this.ctx || !this.song) return;
+    const codeUpper = code.toUpperCase();
+
+    // 1. GLOBAL EFFECTS: Must execute even if channel voice node is uninitialized
+    if (codeUpper === 'F') { // Set Speed (1..31) or Tempo (>= 32) (Fxx)
+      if (val >= 32) {
+        this.playbackBpm = val;
+      } else if (val > 0) {
+        this.playbackSpeed = val;
+      }
+      return;
+    }
+
+    if (codeUpper === 'B') { // Position Jump (Bxx)
+      this.pendingOrderJump = val;
+      this.pendingLineJump = 0;
+      return;
+    }
+
+    if (codeUpper === 'D') { // Pattern Break (Dxx: target line in BCD)
+      const high = (val >> 4) & 0x0F;
+      const low = val & 0x0F;
+      const targetLine = Math.min(63, (high * 10) + low);
+      if (this.pendingOrderJump === null) {
+        this.pendingOrderJump = this.currentOrderIndex + 1;
+      }
+      this.pendingLineJump = targetLine;
+      return;
+    }
+
+    if (codeUpper === 'E') {
+      const subCode = (val >> 4) & 0x0F;
+      const subVal = val & 0x0F;
+      if (subCode === 0x0) { // Set Amiga Filter (E0x)
+        this.setAmigaFilter(subVal === 0);
+        return;
+      }
+      if (subCode === 0xE) { // Pattern Delay (EEx)
+        this.patternDelayLines = subVal;
+        return;
+      }
+      if (subCode === 0x6) { // Pattern Loop (E6x)
+        if (subVal === 0) {
+          this.patternLoopStartLine[channelIndex] = this.currentLine;
+        } else {
+          if (this.patternLoopCount[channelIndex] === undefined || this.patternLoopCount[channelIndex] === 0) {
+            this.patternLoopCount[channelIndex] = subVal;
+          } else {
+            this.patternLoopCount[channelIndex]--;
+          }
+          if (this.patternLoopCount[channelIndex] > 0) {
+            this.pendingLineJump = this.patternLoopStartLine[channelIndex] || 0;
+            this.pendingOrderJump = this.currentOrderIndex;
+          }
+        }
+        return;
+      }
+    }
+
+    // 2. CHANNEL VOICE EFFECTS:
     const active = this.activeChannelNodes[channelIndex];
     if (!active) return;
 
     const sample = this.song.samples[active.instrumentIndex];
     const finetune = active.finetune ?? sample?.finetune ?? 0;
-    const isAmigaSample = sample?.baseNote === 48;
 
     const tickDuration = 2.5 / this.playbackBpm;
     const totalTicks = Math.max(1, this.playbackSpeed);
-
-    const codeUpper = code.toUpperCase();
 
     switch (codeUpper) {
       case '0': { // Arpeggio (0xy)
@@ -1372,47 +1497,34 @@ export class AudioEngine {
           if (tick % 3 === 1) semitoneOffset = note1;
           else if (tick % 3 === 2) semitoneOffset = note2;
 
-          if (active.oscType && active.oscType !== 'noise') {
+          if (active.source instanceof AudioBufferSourceNode) {
+            const targetNoteStr = midiToNote(active.midiNote + semitoneOffset);
+            const targetPeriod = getAmigaPeriod(targetNoteStr, finetune);
+            const rate = targetPeriod > 0 ? (214 / targetPeriod) : (214 / active.currentPeriod);
+            active.source.playbackRate.setValueAtTime(rate, tickTime);
+          } else if (active.oscType && active.oscType !== 'noise') {
             const freq = midiToFreq(active.midiNote + semitoneOffset);
             (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
-          } else if (active.source instanceof AudioBufferSourceNode) {
-            const rateMultiplier = (sample.isAmigaModSample || sample.baseNote === 48)
-              ? getAmigaPlaybackRate(getAmigaPeriod(midiToNote(active.midiNote + semitoneOffset), finetune), finetune)
-              : getPlaybackRate(active.midiNote + semitoneOffset, sample?.baseNote ?? 60, finetune);
-            active.source.playbackRate.setValueAtTime(rateMultiplier, tickTime);
           }
-        }
-
-        // Return pitch to base period after ticks complete
-        const resetTime = time + (totalTicks * tickDuration);
-        if (active.oscType && active.oscType !== 'noise') {
-          const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (baseP / Math.max(1, active.currentPeriod));
-          (active.source as OscillatorNode).frequency.setValueAtTime(freq, resetTime);
-        } else if (active.source instanceof AudioBufferSourceNode) {
-          const normalRate = baseR * (baseP / Math.max(1, active.currentPeriod));
-          active.source.playbackRate.setValueAtTime(normalRate, resetTime);
         }
         break;
       }
 
       case '1': { // Portamento Up (1xx)
         if (val > 0) active.portamentoUpSpeed = val;
-        const speed = active.portamentoUpSpeed;
+        const speed = active.portamentoUpSpeed || active.portamentoSpeed || 4;
         if (!active.source) break;
-
-        const baseP = active.basePeriod || 428;
-        const baseR = active.baseRate || getPlaybackRate(active.midiNote, sample?.baseNote ?? 60, finetune);
 
         for (let tick = 1; tick < totalTicks; tick++) {
           const tickTime = time + (tick * tickDuration);
           active.currentPeriod = Math.max(113, active.currentPeriod - speed);
 
-          if (active.oscType && active.oscType !== 'noise') {
-            const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (baseP / Math.max(1, active.currentPeriod));
-            (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
-          } else if (active.source instanceof AudioBufferSourceNode) {
-            const rate = baseR * (baseP / Math.max(1, active.currentPeriod));
+          if (active.source instanceof AudioBufferSourceNode) {
+            const rate = 214 / active.currentPeriod;
             active.source.playbackRate.setValueAtTime(rate, tickTime);
+          } else if (active.oscType && active.oscType !== 'noise') {
+            const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (active.basePeriod / active.currentPeriod);
+            (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
           }
         }
         break;
@@ -1420,22 +1532,19 @@ export class AudioEngine {
 
       case '2': { // Portamento Down (2xx)
         if (val > 0) active.portamentoDownSpeed = val;
-        const speed = active.portamentoDownSpeed;
+        const speed = active.portamentoDownSpeed || active.portamentoSpeed || 4;
         if (!active.source) break;
-
-        const baseP = active.basePeriod || 428;
-        const baseR = active.baseRate || getPlaybackRate(active.midiNote, sample?.baseNote ?? 60, finetune);
 
         for (let tick = 1; tick < totalTicks; tick++) {
           const tickTime = time + (tick * tickDuration);
           active.currentPeriod = Math.min(856, active.currentPeriod + speed);
 
-          if (active.oscType && active.oscType !== 'noise') {
-            const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (baseP / Math.max(1, active.currentPeriod));
-            (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
-          } else if (active.source instanceof AudioBufferSourceNode) {
-            const rate = baseR * (baseP / Math.max(1, active.currentPeriod));
+          if (active.source instanceof AudioBufferSourceNode) {
+            const rate = 214 / active.currentPeriod;
             active.source.playbackRate.setValueAtTime(rate, tickTime);
+          } else if (active.oscType && active.oscType !== 'noise') {
+            const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (active.basePeriod / active.currentPeriod);
+            (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
           }
         }
         break;
@@ -1443,13 +1552,14 @@ export class AudioEngine {
 
       case '3':   // Tone Portamento (3xx)
       case '5': { // Tone Portamento + Volume Slide (5xx)
-        if (val > 0) active.portamentoSpeed = val;
-        const speed = active.portamentoSpeed;
+        // Authentic ProTracker rule: 3xx updates portamento speed; 5xy NEVER overwrites portamento speed with volume slide val!
+        if (codeUpper === '3' && val > 0) {
+          active.portamentoSpeed = val;
+        }
+        const speed = active.portamentoSpeed || 4;
 
-        if (active.targetPeriod !== undefined && active.source) {
+        if (active.targetPeriod !== undefined && active.targetPeriod > 0 && active.source) {
           const target = active.targetPeriod;
-          const baseP = active.basePeriod || 428;
-          const baseR = active.baseRate || getPlaybackRate(active.midiNote, sample?.baseNote ?? 60, finetune);
 
           for (let tick = 1; tick < totalTicks; tick++) {
             const tickTime = time + (tick * tickDuration);
@@ -1459,12 +1569,12 @@ export class AudioEngine {
               active.currentPeriod = Math.max(target, active.currentPeriod - speed);
             }
 
-            if (active.oscType && active.oscType !== 'noise') {
-              const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (baseP / Math.max(1, active.currentPeriod));
-              (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
-            } else if (active.source instanceof AudioBufferSourceNode) {
-              const rate = baseR * (baseP / Math.max(1, active.currentPeriod));
+            if (active.source instanceof AudioBufferSourceNode) {
+              const rate = 214 / active.currentPeriod;
               active.source.playbackRate.setValueAtTime(rate, tickTime);
+            } else if (active.oscType && active.oscType !== 'noise') {
+              const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (active.basePeriod / active.currentPeriod);
+              (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
             }
           }
         }
@@ -1477,41 +1587,34 @@ export class AudioEngine {
 
       case '4':   // Vibrato (4xy)
       case '6': { // Vibrato + Volume Slide (6xy)
-        const vSpeed = (val >> 4) & 0x0F;
-        const vDepth = val & 0x0F;
-        if (vSpeed > 0) active.vibratoSpeed = vSpeed;
-        if (vDepth > 0) active.vibratoDepth = vDepth;
-
-        if (!active.source) break;
-        const basePeriod = active.currentPeriod;
-        const baseP = active.basePeriod || 428;
-        const baseR = active.baseRate || getPlaybackRate(active.midiNote, sample?.baseNote ?? 60, finetune);
-
-        for (let tick = 0; tick < totalTicks; tick++) {
-          const tickTime = time + (tick * tickDuration);
-          const rawDelta = getWaveformValue(active.vibratoPos, active.vibratoWaveform);
-          const delta = (rawDelta * active.vibratoDepth) / 128;
-          const tickPeriod = Math.max(113, Math.min(856, basePeriod + delta));
-
-          if (active.oscType && active.oscType !== 'noise') {
-            const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (baseP / Math.max(1, tickPeriod));
-            (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
-          } else if (active.source instanceof AudioBufferSourceNode) {
-            const rate = baseR * (baseP / Math.max(1, tickPeriod));
-            active.source.playbackRate.setValueAtTime(rate, tickTime);
-          }
-
-          active.vibratoPos = (active.vibratoPos + active.vibratoSpeed) & 0x3F;
+        // Authentic ProTracker rule: 4xy updates vibrato speed & depth; 6xy NEVER overwrites vibrato with volume slide val!
+        if (codeUpper === '4') {
+          const vSpeed = (val >> 4) & 0x0F;
+          const vDepth = val & 0x0F;
+          if (vSpeed > 0) active.vibratoSpeed = vSpeed;
+          if (vDepth > 0) active.vibratoDepth = vDepth;
         }
 
-        // Return pitch to base period after ticks complete
-        const resetTime = time + (totalTicks * tickDuration);
-        if (active.oscType && active.oscType !== 'noise') {
-          const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (baseP / Math.max(1, active.currentPeriod));
-          (active.source as OscillatorNode).frequency.setValueAtTime(freq, resetTime);
-        } else if (active.source instanceof AudioBufferSourceNode) {
-          const normalRate = baseR * (baseP / Math.max(1, active.currentPeriod));
-          active.source.playbackRate.setValueAtTime(normalRate, resetTime);
+        if (active.source) {
+          const basePeriod = active.currentPeriod;
+
+          // ProTracker standard: Tick 0 has NO vibrato delta. Vibrato modulates on ticks 1..totalTicks-1
+          for (let tick = 1; tick < totalTicks; tick++) {
+            const tickTime = time + (tick * tickDuration);
+            const rawDelta = getWaveformValue(active.vibratoPos, active.vibratoWaveform);
+            const delta = (rawDelta * (active.vibratoDepth || 4)) / 128;
+            const tickPeriod = Math.max(113, Math.min(856, basePeriod + delta));
+
+            if (active.source instanceof AudioBufferSourceNode) {
+              const rate = 214 / tickPeriod;
+              active.source.playbackRate.setValueAtTime(rate, tickTime);
+            } else if (active.oscType && active.oscType !== 'noise') {
+              const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (active.basePeriod / tickPeriod);
+              (active.source as OscillatorNode).frequency.setValueAtTime(freq, tickTime);
+            }
+
+            active.vibratoPos = (active.vibratoPos + (active.vibratoSpeed || 4)) & 0x3F;
+          }
         }
 
         if (codeUpper === '6') {
@@ -1526,7 +1629,8 @@ export class AudioEngine {
         if (tSpeed > 0) active.tremoloSpeed = tSpeed;
         if (tDepth > 0) active.tremoloDepth = tDepth;
 
-        for (let tick = 0; tick < totalTicks; tick++) {
+        // Modulate on ticks 1..totalTicks-1
+        for (let tick = 1; tick < totalTicks; tick++) {
           const tickTime = time + (tick * tickDuration);
           const rawDelta = getWaveformValue(active.tremoloPos, active.tremoloWaveform);
           const delta = (rawDelta * active.tremoloDepth) / 64;
@@ -1555,12 +1659,6 @@ export class AudioEngine {
         break;
       }
 
-      case 'B': { // Position Jump (Bxx)
-        this.pendingOrderJump = val;
-        this.pendingLineJump = 0;
-        break;
-      }
-
       case 'C': { // Set Volume (Cxx: 0..64)
         active.volume64 = Math.min(val, 64);
         const targetVol = (active.volume64 / 64) * 0.38;
@@ -1569,46 +1667,29 @@ export class AudioEngine {
         break;
       }
 
-      case 'D': { // Pattern Break (Dxx: target line in BCD)
-        const high = (val >> 4) & 0x0F;
-        const low = val & 0x0F;
-        const targetLine = (high * 10) + low;
-        this.pendingOrderJump = this.currentOrderIndex + 1;
-        this.pendingLineJump = targetLine;
-        break;
-      }
-
       case 'E': { // Extended Effects (Exx)
         const subCode = (val >> 4) & 0x0F;
         const subVal = val & 0x0F;
 
         switch (subCode) {
-          case 0x0: { // Set Filter (E0x: 0 = on, 1 = off)
-            this.setAmigaFilter(subVal === 0);
-            break;
-          }
           case 0x1: { // Fine Portamento Up (E1x: tick 0 only)
             active.currentPeriod = Math.max(113, active.currentPeriod - subVal);
-            const baseP = active.basePeriod || 428;
-            const baseR = active.baseRate || getPlaybackRate(active.midiNote, sample?.baseNote ?? 60, finetune);
             if (active.source instanceof AudioBufferSourceNode) {
-              const rate = baseR * (baseP / Math.max(1, active.currentPeriod));
+              const rate = 214 / active.currentPeriod;
               active.source.playbackRate.setValueAtTime(rate, time);
             } else if (active.oscType && active.oscType !== 'noise') {
-              const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (baseP / Math.max(1, active.currentPeriod));
+              const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (active.basePeriod / active.currentPeriod);
               (active.source as OscillatorNode).frequency.setValueAtTime(freq, time);
             }
             break;
           }
           case 0x2: { // Fine Portamento Down (E2x: tick 0 only)
             active.currentPeriod = Math.min(856, active.currentPeriod + subVal);
-            const baseP = active.basePeriod || 428;
-            const baseR = active.baseRate || getPlaybackRate(active.midiNote, sample?.baseNote ?? 60, finetune);
             if (active.source instanceof AudioBufferSourceNode) {
-              const rate = baseR * (baseP / Math.max(1, active.currentPeriod));
+              const rate = 214 / active.currentPeriod;
               active.source.playbackRate.setValueAtTime(rate, time);
             } else if (active.oscType && active.oscType !== 'noise') {
-              const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (baseP / Math.max(1, active.currentPeriod));
+              const freq = (active.baseFreq || midiToFreq(active.midiNote)) * (active.basePeriod / active.currentPeriod);
               (active.source as OscillatorNode).frequency.setValueAtTime(freq, time);
             }
             break;
@@ -1626,26 +1707,9 @@ export class AudioEngine {
             active.finetune = subVal > 7 ? subVal - 16 : subVal;
             const baseR = getPlaybackRate(active.midiNote, sample?.baseNote ?? 60, active.finetune);
             active.baseRate = baseR;
-            const baseP = active.basePeriod || 428;
             if (active.source instanceof AudioBufferSourceNode) {
-              const rate = baseR * (baseP / Math.max(1, active.currentPeriod));
+              const rate = 214 / active.currentPeriod;
               active.source.playbackRate.setValueAtTime(rate, time);
-            }
-            break;
-          }
-          case 0x6: { // Pattern Loop (E6x)
-            if (subVal === 0) {
-              this.patternLoopStartLine[channelIndex] = this.currentLine;
-            } else {
-              if (this.patternLoopCount[channelIndex] === undefined || this.patternLoopCount[channelIndex] === 0) {
-                this.patternLoopCount[channelIndex] = subVal;
-              } else {
-                this.patternLoopCount[channelIndex]--;
-              }
-              if (this.patternLoopCount[channelIndex] > 0) {
-                this.pendingLineJump = this.patternLoopStartLine[channelIndex] || 0;
-                this.pendingOrderJump = this.currentOrderIndex;
-              }
             }
             break;
           }
@@ -1660,7 +1724,7 @@ export class AudioEngine {
             break;
           }
           case 0x9: { // Retrigger Note every x ticks (E9x)
-            if (subVal > 0 && sample && sample.buffer) {
+            if (subVal > 0 && sample && sample.buffer && active.source) {
               for (let tick = subVal; tick < totalTicks; tick += subVal) {
                 const retrigTime = time + (tick * tickDuration);
                 const bufSrc = this.ctx.createBufferSource();
@@ -1677,10 +1741,14 @@ export class AudioEngine {
                     bufSrc.loopEnd = lEnd;
                   }
                 }
-                const rate = getPlaybackRate(active.midiNote, sample.baseNote || 60, finetune);
+                const rate = 214 / active.currentPeriod;
                 bufSrc.playbackRate.setValueAtTime(rate, retrigTime);
                 bufSrc.connect(active.gainNode);
                 bufSrc.start(retrigTime);
+                try {
+                  active.source.stop(retrigTime);
+                } catch (e) {}
+                active.source = bufSrc;
               }
             }
             break;
@@ -1703,28 +1771,12 @@ export class AudioEngine {
             const cutTime = time + (subVal * tickDuration);
             active.gainNode.gain.setValueAtTime(0.0001, cutTime);
             if (active.source) {
-              try { active.source.stop(cutTime + 0.01); } catch (e) {}
+              try { active.source.stop(cutTime); } catch (e) {}
             }
-            break;
-          }
-          case 0xD: { // Delay Note by x ticks (EDx: note trigger scheduled in scheduleStep)
-            break;
-          }
-          case 0xE: { // Pattern Delay (EEx)
-            this.patternDelayLines = subVal;
             break;
           }
           default:
             break;
-        }
-        break;
-      }
-
-      case 'F': { // Set Speed (1..31) or Tempo (>= 32) (Fxx)
-        if (val >= 32) {
-          this.playbackBpm = val;
-        } else if (val > 0) {
-          this.playbackSpeed = val;
         }
         break;
       }

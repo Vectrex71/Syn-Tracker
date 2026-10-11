@@ -2386,6 +2386,7 @@ export const VisualizerStudioModal: React.FC<VisualizerStudioModalProps> = ({
     let smoothTime = 0;
     let smoothBass = 0;
     const renderFrame = (overrideAudio?: { freq: Uint8Array; wave: Uint8Array; time: number; frame: number; bass: number; dt: number }) => {
+      if (!isOpen || cancelRenderRef.current) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');

@@ -1,0 +1,7 @@
+# Exclude huge asset folders from AI context and file tree generation
+node_modules/
+dist/
+build/
+public/amiga_st/samples/
+public/amiga_st/samples/**
+*.aiff

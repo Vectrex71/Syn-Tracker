@@ -133,6 +133,14 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
     ? (Math.abs(selection.end - selection.start) / currentBuffer.sampleRate).toFixed(3)
     : null;
 
+  // Cached theme color to avoid layout thrashing on render (BUG-09)
+  const themeAccentRef = useRef<string>('#38bdf8');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      themeAccentRef.current = getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#38bdf8';
+    }
+  }, []);
+
   // Draw Waveform Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -189,7 +197,7 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
     const sampleWindow = Math.max(1, endSample - startSample);
 
     const numChannels = currentBuffer.numberOfChannels;
-    const themeAccent = getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#38bdf8';
+    const themeAccent = themeAccentRef.current || '#38bdf8';
 
     // Helper to draw a single channel waveform smoothly without gaps
     const drawChannelWaveform = (

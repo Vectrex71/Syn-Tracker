@@ -4,6 +4,13 @@
  */
 
 export type KeyboardLayout = 'QWERTZ' | 'QWERTY' | 'AZERTY' | 'AUTO';
+export type NumberBase = 'hex' | 'dec';
+export type TrackerKeybindingMode = 'tracker' | 'daw'; // tracker: Space = Edit/Record, DAW: Space = Play/Pause
+
+export interface TrackState {
+  isMuted: boolean;
+  isSoloed: boolean;
+}
 
 export interface TrackerStep {
   note: string | null;         // e.g., "C-4", "D#5", "OFF" (Key Off), null (empty)

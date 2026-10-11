@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Disc } from 'lucide-react';
+import { Disc, Github } from 'lucide-react';
 
 interface MobileUnsupportedScreenProps {
   onBackToLanding?: () => void;
@@ -111,7 +111,18 @@ export const MobileUnsupportedScreen: React.FC<MobileUnsupportedScreenProps> = (
       </div>
 
       {/* Footer Branding */}
-      <footer className="relative z-10 w-full max-w-md mx-auto pt-4 pb-1 border-t border-white/10 flex items-center justify-center">
+      <footer className="relative z-10 w-full max-w-md mx-auto pt-4 pb-1 border-t border-white/10 flex items-center justify-center gap-4">
+        <a
+          href="https://github.com/Vectrex71/Syn-Tracker"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#101827]/80 hover:bg-[#172338] border border-slate-700/80 hover:border-slate-500 text-slate-300 hover:text-white text-xs font-mono transition-all cursor-pointer shadow-sm group"
+          title="GitHub: Vectrex71/Syn-Tracker"
+        >
+          <Github className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform group-hover:scale-110" />
+          <span className="text-[11px] font-sans font-medium">GitHub</span>
+        </a>
+
         <a
           href="https://www.hj-wuethrich.cv"
           target="_blank"

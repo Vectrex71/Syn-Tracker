@@ -17,9 +17,10 @@ import {
   Heart,
   Award,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Github
 } from 'lucide-react';
-import { KeyboardLayout, RetroChipSystem, getAllowedChannelsForSystem } from '../types';
+import { KeyboardLayout, RetroChipSystem, getAllowedChannelsForSystem, NumberBase, TrackerKeybindingMode } from '../types';
 import { audioEngine } from '../lib/audioEngine';
 
 interface SettingsDialogProps {
@@ -34,6 +35,10 @@ interface SettingsDialogProps {
   songName?: string;
   onChangeSongName?: (name: string) => void;
   activeChipSystem?: RetroChipSystem | null;
+  numberBase?: NumberBase;
+  onChangeNumberBase?: (base: NumberBase) => void;
+  keybindingMode?: TrackerKeybindingMode;
+  onChangeKeybindingMode?: (mode: TrackerKeybindingMode) => void;
 }
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({
@@ -46,6 +51,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   songName,
   onChangeSongName,
   activeChipSystem,
+  numberBase = 'hex',
+  onChangeNumberBase,
+  keybindingMode = 'tracker',
+  onChangeKeybindingMode,
 }) => {
   const [activeTab, setActiveTab] = useState<'keyboard' | 'tracker' | 'audio' | 'about'>('keyboard');
 
@@ -244,6 +253,78 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                     </div>
                   </div>
 
+                  {/* Tracker Keybinding Convention (BUG-01) */}
+                  {onChangeKeybindingMode && (
+                    <div className="bg-[#0e131a] border border-[#1e2733] p-3.5 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <span className="text-[#f1f5f9] font-bold block text-xs">Keyboard & Playback Convention</span>
+                        <span className="text-[11px] text-[#64748b]">
+                          {keybindingMode === 'tracker'
+                            ? 'Tracker Mode (FT2/Milky): Space = Edit/Record, Enter = Play/Stop, Shift+Space = Play from Row 00'
+                            : 'DAW Mode: Space = Play/Pause, Escape = Edit Mode, Shift+Space = Play from Row 00'}
+                        </span>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onChangeKeybindingMode('tracker')}
+                          className={`px-3 py-1 rounded text-xs font-bold cursor-pointer aqua-gloss ${
+                            keybindingMode === 'tracker' ? 'aqua-blue' : 'aqua-dark'
+                          }`}
+                          title="Tracker Convention (FastTracker II, MilkyTracker, Renoise)"
+                        >
+                          Tracker (FT2)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onChangeKeybindingMode('daw')}
+                          className={`px-3 py-1 rounded text-xs font-bold cursor-pointer aqua-gloss ${
+                            keybindingMode === 'daw' ? 'aqua-blue' : 'aqua-dark'
+                          }`}
+                          title="Modern DAW Convention (Space = Play/Pause)"
+                        >
+                          DAW Standard
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Number Base: Hexadecimal vs Decimal (BUG-04) */}
+                  {onChangeNumberBase && (
+                    <div className="bg-[#0e131a] border border-[#1e2733] p-3.5 rounded flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <span className="text-[#f1f5f9] font-bold block text-xs">Number Display Format</span>
+                        <span className="text-[11px] text-[#64748b]">
+                          {numberBase === 'hex'
+                            ? 'Hexadecimal (Tracker Standard: 01..1F — 1:1 identical across instrument sidebar & pattern grid)'
+                            : 'Decimal (01..31) numbering'}
+                        </span>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onChangeNumberBase('hex')}
+                          className={`px-3 py-1 rounded text-xs font-bold cursor-pointer aqua-gloss ${
+                            numberBase === 'hex' ? 'aqua-blue' : 'aqua-dark'
+                          }`}
+                          title="Hexadecimal (01-1F)"
+                        >
+                          Hex (01..1F)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onChangeNumberBase('dec')}
+                          className={`px-3 py-1 rounded text-xs font-bold cursor-pointer aqua-gloss ${
+                            numberBase === 'dec' ? 'aqua-blue' : 'aqua-dark'
+                          }`}
+                          title="Decimal (01-31)"
+                        >
+                          Decimal (01..31)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Highlight Rows */}
                   <div className="bg-[#0e131a] border border-[#1e2733] p-3.5 rounded flex items-center justify-between">
                     <div>
@@ -425,6 +506,16 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                     <div className="text-[11px] text-slate-400 font-mono">Hansjürg Wüthrich • Switzerland</div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <a
+                      href="https://github.com/Vectrex71/Syn-Tracker"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono transition-colors group"
+                      title="GitHub: Vectrex71/Syn-Tracker"
+                    >
+                      <Github className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
+                      <span>GitHub</span>
+                    </a>
                     <a
                       href="https://bsky.app/profile/hj-wuethrich.bsky.social"
                       target="_blank"

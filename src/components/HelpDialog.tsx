@@ -22,7 +22,8 @@ import {
   Layers,
   Sparkles,
   Command,
-  Heart
+  Heart,
+  Github
 } from 'lucide-react';
 import { KeyboardLayout } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -921,6 +922,17 @@ export const HelpDialog: React.FC<HelpDialogProps> = ({
                 <span className="text-[11px] text-slate-400 hidden sm:inline">
                   Press <KeyBadge k="Space" /> to test playback at any time
                 </span>
+                <span className="text-slate-700 hidden sm:inline">•</span>
+                <a
+                  href="https://github.com/Vectrex71/Syn-Tracker"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-200 transition-colors group"
+                  title="Source Code on GitHub: Vectrex71/Syn-Tracker"
+                >
+                  <Github className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
+                  <span>GitHub</span>
+                </a>
               </div>
               
               <button

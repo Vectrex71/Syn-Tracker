@@ -4,7 +4,7 @@
  */
 
 import React, { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react';
-import { TrackerPattern, TrackerStep, TrackerSample, KeyboardLayout, RetroChipSystem, getAllowedChannelsForSystem } from '../types';
+import { TrackerPattern, TrackerStep, TrackerSample, KeyboardLayout, RetroChipSystem, getAllowedChannelsForSystem, NumberBase, TrackerKeybindingMode, TrackState } from '../types';
 import { NOTES, noteToMidi, midiToNote, audioEngine } from '../lib/audioEngine';
 import { Copy, Clipboard, Trash2, Undo2, Redo2 } from 'lucide-react';
 import { TrackSpectrumMeter } from './TrackSpectrumMeter';
@@ -22,6 +22,12 @@ interface PatternEditorProps {
   bpm?: number;
   speed?: number;
   activeChipSystem?: RetroChipSystem | null;
+  numberBase?: NumberBase;
+  keybindingMode?: TrackerKeybindingMode;
+  stepJump?: number;
+  onChangeStepJump?: (jump: number) => void;
+  onPlay?: () => void;
+  onPause?: () => void;
   onChangeBpm?: (bpm: number) => void;
   onChangeSpeed?: (speed: number) => void;
   onChangeOctave?: (octave: number) => void;
@@ -49,6 +55,24 @@ interface PatternEditorProps {
   onDuplicatePattern?: () => void;
   onClearPattern?: () => void;
 }
+
+// Format instrument index 0..31 into 1-based display string (matching sidebar slot)
+export const formatInstrument = (inst: number | null | undefined, base: NumberBase = 'hex'): string => {
+  if (inst === null || inst === undefined) return '··';
+  const displayNum = inst + 1; // 1-based matching sidebar slot 01..1F
+  return base === 'dec'
+    ? displayNum.toString(10).padStart(2, '0')
+    : displayNum.toString(16).toUpperCase().padStart(2, '0');
+};
+
+// Format volume 0..64 into Hex (00..40) or Decimal (00..64) display string (BUG-05)
+export const formatVolume = (vol: number | null | undefined, base: NumberBase = 'hex'): string => {
+  if (vol === null || vol === undefined) return '··';
+  const clamped = Math.max(0, Math.min(64, vol));
+  return base === 'dec'
+    ? clamped.toString(10).padStart(2, '0')
+    : clamped.toString(16).toUpperCase().padStart(2, '0');
+};
 
 // Map keyboard keys to piano semi-tones (C is 0, C# is 1, etc.) per layout
 const PIANO_MAPS: Record<KeyboardLayout, { lower: Record<string, number>; upper: Record<string, number> }> = {
@@ -116,6 +140,7 @@ interface PatternRowProps {
   selectedTracks: number[];
   mutedChannels: number[];
   soloedChannels: number[];
+  numberBase?: NumberBase;
   onCellClick: (lineIndex: number, channelIndex: number, fieldIndex: 0 | 1 | 2 | 3 | 4) => void;
 }
 
@@ -132,6 +157,7 @@ const PatternRow = React.memo<PatternRowProps>(({
   selectedTracks,
   mutedChannels,
   soloedChannels,
+  numberBase = 'hex',
   onCellClick,
 }) => {
   const isBeatMarker = lineIndex % 4 === 0;
@@ -261,7 +287,7 @@ const PatternRow = React.memo<PatternRowProps>(({
                     : 'text-[#2a384c]'
                 }`}
               >
-                {step.instrument !== null ? (step.instrument + 1).toString(16).toUpperCase().padStart(2, '0') : '··'}
+                {formatInstrument(step.instrument, numberBase)}
               </span>
 
               {/* 3. Volume / FX Column */}
@@ -290,7 +316,7 @@ const PatternRow = React.memo<PatternRowProps>(({
                       : 'text-[#2a384c]'
                   }`}
                 >
-                  {step.volume !== null ? step.volume.toString(10).padStart(2, '0') : '··'}
+                  {formatVolume(step.volume, numberBase)}
                 </span>
 
                 <span
@@ -382,6 +408,12 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
   bpm = 125,
   speed = 6,
   activeChipSystem = 'c64',
+  numberBase = 'hex',
+  keybindingMode = 'tracker',
+  stepJump: stepJumpProp,
+  onChangeStepJump,
+  onPlay,
+  onPause,
   onChangeBpm,
   onChangeSpeed,
   onChangeOctave,
@@ -413,8 +445,16 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
   const horizontalScrollRef = useRef<HTMLDivElement>(null);
   
   const [selectedTracks, setSelectedTracks] = useState<number[]>([]);
-  const [mutedChannels, setMutedChannels] = useState<number[]>([]);
-  const [soloedChannels, setSoloedChannels] = useState<number[]>([]);
+  
+  // Authoritative Track Mute & Solo state synchronized with audioEngine (BUG-06)
+  const [trackStates, setTrackStates] = useState<TrackState[]>(() => audioEngine.getTrackStates(channelsCount));
+
+  useEffect(() => {
+    setTrackStates(audioEngine.getTrackStates(channelsCount));
+    return audioEngine.subscribeTrackStates(() => {
+      setTrackStates(audioEngine.getTrackStates(channelsCount));
+    });
+  }, [channelsCount]);
 
   const toggleTrackSelect = (channelIndex: number) => {
     setSelectedTracks((prev) =>
@@ -426,21 +466,45 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
 
   const toggleMute = (channelIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    const isMuted = mutedChannels.includes(channelIndex);
-    setMutedChannels((prev) =>
-      isMuted ? prev.filter((i) => i !== channelIndex) : [...prev, channelIndex]
-    );
+    const isMuted = trackStates[channelIndex]?.isMuted || false;
+    const isSoloed = trackStates[channelIndex]?.isSoloed || false;
+    // If muting an actively soloed track, also clear solo to avoid stuck solo state (BUG-06)
+    if (isSoloed) {
+      audioEngine.setChannelSolo(channelIndex, false);
+    }
     audioEngine.setChannelMute(channelIndex, !isMuted);
   };
 
   const toggleSolo = (channelIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    const isSoloed = soloedChannels.includes(channelIndex);
-    setSoloedChannels((prev) =>
-      isSoloed ? prev.filter((i) => i !== channelIndex) : [...prev, channelIndex]
-    );
+    const isSoloed = trackStates[channelIndex]?.isSoloed || false;
+    // If activating solo and the track was muted, unmute it so user actually hears the soloed track (BUG-06)
+    if (!isSoloed && trackStates[channelIndex]?.isMuted) {
+      audioEngine.setChannelMute(channelIndex, false);
+    }
     audioEngine.setChannelSolo(channelIndex, !isSoloed);
   };
+
+  // Step Jump state (0 = stay on row, 1 = next row, 2, 3, 4, 8) (BUG-07)
+  const [stepJumpInternal, setStepJumpInternal] = useState<number>(1);
+  const currentStepJump = stepJumpProp !== undefined ? stepJumpProp : stepJumpInternal;
+  const setStepJump = (val: number) => {
+    setStepJumpInternal(val);
+    onChangeStepJump?.(val);
+  };
+
+  // Transient cell input buffer for 2-digit hex/decimal cells (BUG-05)
+  const cellInputBufferRef = useRef<{
+    channel: number;
+    row: number;
+    field: number;
+    firstChar: string;
+  } | null>(null);
+
+  // Clear sub-nibble buffer on cursor move
+  useEffect(() => {
+    cellInputBufferRef.current = null;
+  }, [currentLine, channelsCount]);
 
   // Cursor state
   const [cursorLine, setCursorLine] = useState<number>(currentLine || 0);
@@ -722,9 +786,17 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
         }
       }
 
+      // Step Jump Hotkey: Ctrl + 0..8 (BUG-07)
+      if ((e.ctrlKey || e.metaKey) && ['0', '1', '2', '3', '4', '8'].includes(e.key)) {
+        e.preventDefault();
+        setStepJump(parseInt(e.key, 10));
+        return;
+      }
+
       // Cursor movement
       if (e.key === 'ArrowUp') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         const next = cursorLine > 0 ? cursorLine - 1 : pattern.length - 1;
         setCursorLine(next);
         onSelectLine?.(next);
@@ -732,6 +804,7 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         const next = cursorLine < pattern.length - 1 ? cursorLine + 1 : 0;
         setCursorLine(next);
         onSelectLine?.(next);
@@ -739,6 +812,7 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
       }
       if (e.key === 'PageUp') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         const next = Math.max(0, cursorLine - 16);
         setCursorLine(next);
         onSelectLine?.(next);
@@ -746,19 +820,22 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
       }
       if (e.key === 'PageDown') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         const next = Math.min(pattern.length - 1, cursorLine + 16);
         setCursorLine(next);
         onSelectLine?.(next);
         return;
       }
-      if (e.key === 'Home') {
+      if (e.key === 'Home' || e.code === 'Home') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         setCursorLine(0);
         onSelectLine?.(0);
         return;
       }
-      if (e.key === 'End') {
+      if (e.key === 'End' || e.code === 'End') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         const next = pattern.length - 1;
         setCursorLine(next);
         onSelectLine?.(next);
@@ -766,6 +843,7 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         if (cursorField > 0) {
           setCursorField((prev) => (prev - 1) as 0 | 1 | 2 | 3 | 4);
         } else if (cursorChannel > 0) {
@@ -776,6 +854,7 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         if (cursorField < 4) {
           setCursorField((prev) => (prev + 1) as 0 | 1 | 2 | 3 | 4);
         } else if (cursorChannel < channelsCount - 1) {
@@ -786,6 +865,7 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
       }
       if (e.key === 'Tab') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         if (e.shiftKey) {
           setCursorChannel((prev) => (prev > 0 ? prev - 1 : channelsCount - 1));
         } else {
@@ -794,15 +874,49 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
         return;
       }
 
-      // Enter / Return key: Advance 1 step down (Shift+Enter advances 1 step up)
+      // Enter / Return key: In Tracker mode, Enter toggles Play/Stop if not editing; Shift+Enter plays from row 00
       if (e.key === 'Enter') {
         e.preventDefault();
-        const next = e.shiftKey
-          ? (cursorLine > 0 ? cursorLine - 1 : pattern.length - 1)
-          : (cursorLine < pattern.length - 1 ? cursorLine + 1 : 0);
-        setCursorLine(next);
-        onSelectLine?.(next);
-        return;
+        cellInputBufferRef.current = null;
+        if (keybindingMode === 'tracker') {
+          if (e.shiftKey) {
+            setCursorLine(0);
+            onSelectLine?.(0);
+            onPlay?.();
+          } else {
+            if (isPlaying) {
+              onPause?.();
+            } else {
+              onPlay?.();
+            }
+          }
+          return;
+        } else {
+          // DAW Mode: advance 1 step
+          const next = e.shiftKey
+            ? (cursorLine > 0 ? cursorLine - 1 : pattern.length - 1)
+            : (cursorLine < pattern.length - 1 ? cursorLine + 1 : 0);
+          setCursorLine(next);
+          onSelectLine?.(next);
+          return;
+        }
+      }
+
+      // Space key: In Tracker mode (FT2/MilkyTracker), Space toggles Edit/Record Mode (BUG-01)
+      if (e.key === ' ' || e.code === 'Space') {
+        if (keybindingMode === 'tracker') {
+          e.preventDefault();
+          cellInputBufferRef.current = null;
+          if (e.shiftKey) {
+            // Shift+Space: Play from beginning (Row 00)
+            setCursorLine(0);
+            onSelectLine?.(0);
+            onPlay?.();
+          } else {
+            onToggleEditMode?.();
+          }
+          return;
+        }
       }
 
       // Helper to compute exact quantized target row and order for live recording vs manual step input
@@ -817,9 +931,19 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
         return { row: cursorLine, order: currentOrderIndex ?? 0 };
       };
 
-      // Delete (Delete and step forward 1 line) & Backspace (Delete and step back 1 line)
-      if (e.key === 'Delete' || e.key === 'Backspace') {
+      const advanceRow = (stepCount = currentStepJump) => {
+        cellInputBufferRef.current = null;
+        if (stepCount > 0 && !isPlaying) {
+          const next = (cursorLine + stepCount) % pattern.length;
+          setCursorLine(next);
+          onSelectLine?.(next);
+        }
+      };
+
+      // Delete (Delete and step forward) & Backspace (Delete and step back) & Dot (.)
+      if (e.key === 'Delete' || e.key === 'Backspace' || e.key === '.') {
         e.preventDefault();
+        cellInputBufferRef.current = null;
         const { row: targetRow, order: targetOrder } = getTargetRowAndOrder();
         if (cursorField === 0) {
           onUpdateStep(cursorChannel, targetRow, { note: null, instrument: null }, targetOrder);
@@ -828,21 +952,15 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
         } else if (cursorField === 2) {
           onUpdateStep(cursorChannel, targetRow, { volume: null }, targetOrder);
         } else if (cursorField === 3) {
-          onUpdateStep(cursorChannel, targetRow, { effectCode: null }, targetOrder);
+          onUpdateStep(cursorChannel, targetRow, { effectCode: null, effectVal: null }, targetOrder);
         } else if (cursorField === 4) {
           onUpdateStep(cursorChannel, targetRow, { effectVal: null }, targetOrder);
         }
 
         if (!isPlaying) {
-          if (e.key === 'Delete') {
-            // Delete: Advance 1 step down (Shift+Delete steps 1 up)
-            const next = e.shiftKey
-              ? (cursorLine > 0 ? cursorLine - 1 : pattern.length - 1)
-              : (cursorLine < pattern.length - 1 ? cursorLine + 1 : 0);
-            setCursorLine(next);
-            onSelectLine?.(next);
+          if (e.key === 'Delete' || e.key === '.') {
+            advanceRow(currentStepJump || 1);
           } else if (e.key === 'Backspace') {
-            // Backspace: Step 1 line back
             const next = cursorLine > 0 ? cursorLine - 1 : pattern.length - 1;
             setCursorLine(next);
             onSelectLine?.(next);
@@ -851,22 +969,18 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
         return;
       }
 
-      // Note Off / Cut
-      if (e.key === '`' || e.key === '~' || e.key === '1') {
-        if (cursorField === 0) {
+      // Note Off / Cut (Key ~ or ` or CapsLock or Note Off)
+      if (e.key === '`' || e.key === '~' || (cursorField === 0 && e.code === 'Backquote')) {
+        if (cursorField === 0 && isEditMode) {
           e.preventDefault();
           const { row: targetRow, order: targetOrder } = getTargetRowAndOrder();
           onUpdateStep(cursorChannel, targetRow, { note: 'OFF' }, targetOrder);
-          if (isEditMode && !isPlaying) {
-            const next = cursorLine < pattern.length - 1 ? cursorLine + 1 : 0;
-            setCursorLine(next);
-            onSelectLine?.(next);
-          }
+          advanceRow();
           return;
         }
       }
 
-      // Note entry via keyboard piano
+      // Note entry via keyboard piano (field 0)
       if (cursorField === 0) {
         const map = PIANO_MAPS[keyboardLayout] || PIANO_MAPS.AUTO;
         const key = keyboardLayout === 'AUTO' ? e.code : e.key.toLowerCase();
@@ -901,48 +1015,106 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
               note: fullNoteString,
               instrument: activeSampleIndex,
             }, targetOrder);
-            if (!isPlaying) {
-              const next = cursorLine < pattern.length - 1 ? cursorLine + 1 : 0;
-              setCursorLine(next);
-              onSelectLine?.(next);
-            }
+            advanceRow();
           }
           return;
         }
       }
 
-      // Numeric inputs for Instrument & Volume & Effect fields
-      if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'].includes(e.key.toLowerCase())) {
-        const val = parseInt(e.key, 16);
-        const { row: targetRow, order: targetOrder } = getTargetRowAndOrder();
-        if (cursorField === 1 && isEditMode) {
+      // 1. INSTRUMENT FIELD (Field 1): 2-digit Hex (01..1F matching sidebar slots 1:1) (BUG-03, BUG-04)
+      if (cursorField === 1 && isEditMode) {
+        if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'].includes(e.key.toLowerCase())) {
           e.preventDefault();
-          onUpdateStep(cursorChannel, targetRow, { instrument: val }, targetOrder);
-          if (!isPlaying) {
-            const next = cursorLine < pattern.length - 1 ? cursorLine + 1 : 0;
-            setCursorLine(next);
-            onSelectLine?.(next);
+          const char = e.key.toLowerCase();
+          const { row: targetRow, order: targetOrder } = getTargetRowAndOrder();
+          const buf = cellInputBufferRef.current;
+          if (!buf || buf.channel !== cursorChannel || buf.row !== targetRow || buf.field !== 1) {
+            // First digit (high nibble)
+            cellInputBufferRef.current = { channel: cursorChannel, row: targetRow, field: 1, firstChar: char };
+            const hexVal = parseInt(char, 16);
+            const tempInst = hexVal > 0 ? Math.min(samples.length - 1, hexVal - 1) : null;
+            onUpdateStep(cursorChannel, targetRow, { instrument: tempInst }, targetOrder);
+          } else {
+            // Second digit (low nibble)
+            const fullHex = buf.firstChar + char;
+            const instNum = parseInt(fullHex, 16);
+            // 1-based to 0-based index: Slot "01" -> index 0, Slot "08" -> index 7, Slot "00" -> null
+            const finalInst = instNum > 0 ? Math.min(samples.length - 1, instNum - 1) : null;
+            onUpdateStep(cursorChannel, targetRow, { instrument: finalInst }, targetOrder);
+            advanceRow();
           }
           return;
         }
-        if (cursorField === 2 && isEditMode) {
+      }
+
+      // 2. VOLUME FIELD (Field 2): 2-digit Hex (00..40) or Decimal (00..64) (BUG-05)
+      if (cursorField === 2 && isEditMode) {
+        const isHexKey = numberBase === 'hex' && /^[0-9a-fA-F]$/.test(e.key);
+        const isDecKey = numberBase === 'dec' && /^[0-9]$/.test(e.key);
+        if (isHexKey || isDecKey) {
           e.preventDefault();
-          const volVal = Math.min(64, parseInt(e.key, 10) * 6);
-          onUpdateStep(cursorChannel, targetRow, { volume: volVal }, targetOrder);
-          if (!isPlaying) {
-            const next = cursorLine < pattern.length - 1 ? cursorLine + 1 : 0;
-            setCursorLine(next);
-            onSelectLine?.(next);
+          const char = e.key.toLowerCase();
+          const { row: targetRow, order: targetOrder } = getTargetRowAndOrder();
+          const buf = cellInputBufferRef.current;
+          if (!buf || buf.channel !== cursorChannel || buf.row !== targetRow || buf.field !== 2) {
+            // First digit (high nibble / tens place)
+            cellInputBufferRef.current = { channel: cursorChannel, row: targetRow, field: 2, firstChar: char };
+            if (numberBase === 'dec') {
+              const tens = parseInt(char, 10);
+              const tempVol = Math.min(64, tens * 10);
+              onUpdateStep(cursorChannel, targetRow, { volume: tempVol }, targetOrder);
+            } else {
+              const highNibble = parseInt(char, 16);
+              const tempVol = Math.min(64, highNibble * 16);
+              onUpdateStep(cursorChannel, targetRow, { volume: tempVol }, targetOrder);
+            }
+          } else {
+            // Second digit (low nibble / ones place)
+            const fullStr = buf.firstChar + char;
+            if (numberBase === 'dec') {
+              const volNum = Math.min(64, Math.max(0, parseInt(fullStr, 10)));
+              onUpdateStep(cursorChannel, targetRow, { volume: volNum }, targetOrder);
+            } else {
+              const volNum = Math.min(64, Math.max(0, parseInt(fullStr, 16)));
+              onUpdateStep(cursorChannel, targetRow, { volume: volNum }, targetOrder);
+            }
+            advanceRow();
           }
           return;
         }
-        if (cursorField === 4 && isEditMode) {
+      }
+
+      // 3. EFFECT CODE FIELD (Field 3): Single alphanumeric character (0-9, A-Z)
+      if (cursorField === 3 && isEditMode) {
+        if (/^[0-9a-zA-Z]$/.test(e.key)) {
           e.preventDefault();
-          onUpdateStep(cursorChannel, targetRow, { effectVal: val }, targetOrder);
-          if (!isPlaying) {
-            const next = cursorLine < pattern.length - 1 ? cursorLine + 1 : 0;
-            setCursorLine(next);
-            onSelectLine?.(next);
+          const { row: targetRow, order: targetOrder } = getTargetRowAndOrder();
+          const code = e.key.toUpperCase();
+          onUpdateStep(cursorChannel, targetRow, { effectCode: code }, targetOrder);
+          cellInputBufferRef.current = null;
+          setCursorField(4); // Automatically advance cursor to effect value!
+          return;
+        }
+      }
+
+      // 4. EFFECT VALUE FIELD (Field 4): 2-digit Hex (00..FF)
+      if (cursorField === 4 && isEditMode) {
+        if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'].includes(e.key.toLowerCase())) {
+          e.preventDefault();
+          const char = e.key.toLowerCase();
+          const { row: targetRow, order: targetOrder } = getTargetRowAndOrder();
+          const buf = cellInputBufferRef.current;
+          if (!buf || buf.channel !== cursorChannel || buf.row !== targetRow || buf.field !== 4) {
+            // High nibble
+            cellInputBufferRef.current = { channel: cursorChannel, row: targetRow, field: 4, firstChar: char };
+            const highVal = parseInt(char, 16) * 16;
+            onUpdateStep(cursorChannel, targetRow, { effectVal: highVal }, targetOrder);
+          } else {
+            // Low nibble
+            const fullHex = buf.firstChar + char;
+            const finalVal = parseInt(fullHex, 16);
+            onUpdateStep(cursorChannel, targetRow, { effectVal: finalVal }, targetOrder);
+            advanceRow();
           }
           return;
         }
@@ -995,22 +1167,8 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
     <div className="rounded-lg flex flex-col h-full min-h-0 overflow-hidden font-mono text-xs select-none glass-panel text-[#cbd5e1]">
       {/* 1. Dedicated Pattern & Actions Toolbar */}
       <div className="flex items-center justify-between gap-2 px-2.5 sm:px-3 py-1.5 border-b border-white/10 shrink-0 select-none bg-[#0e141d]/90 backdrop-blur-md overflow-x-auto no-scrollbar">
-        {/* Left Area: Pattern Badge & Track Selection */}
+        {/* Left Area: Selected Tracks Indicator (Saves crucial horizontal space on tablets) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Connected Pattern Badge */}
-          <div className="inline-flex items-center rounded overflow-hidden border border-[#1f364d] shadow-sm bg-[#080d14] shrink-0">
-            <span 
-              className="px-2 py-0.5 sm:px-2.5 sm:py-1 font-bold font-mono text-[11px] tracking-wider whitespace-nowrap"
-              style={{
-                color: 'var(--theme-accent, #38bdf8)',
-                backgroundColor: 'var(--theme-accent-dim, rgba(56,189,248,0.16))',
-              }}
-              title={`Active Pattern ${pattern.id}`}
-            >
-              PAT {pattern.id.toString().padStart(2, '0')}
-            </span>
-          </div>
-
           {selectedTracks.length > 0 && (
             <div 
               className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border backdrop-blur-sm text-[10px] sm:text-[11px] shrink-0"
@@ -1178,9 +1336,9 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
             return (
               <div 
                 className="flex items-center gap-1 sm:gap-1.5" 
-                title={`Tracks Polyphony for active chip system`}
+                title={`Polyphony channels count for active sound system`}
               >
-                <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#64748b]">TRK</span>
+                <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#64748b]">CHANNELS</span>
                 <div className="flex items-center rounded bg-[#0e1520]/90 border border-[#1c2738] overflow-hidden p-0.5 gap-0.5">
                   {allowedChannels.map((count) => {
                     const isActive = channelsCount === count;
@@ -1189,13 +1347,13 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
                         key={count}
                         type="button"
                         onClick={() => onChangeChannelsCount?.(count)}
-                        className={`px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-bold rounded-[3px] transition-all cursor-pointer ${
+                        className={`px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-bold rounded-[3px] transition-all cursor-pointer ${
                           isActive 
                             ? 'text-white shadow-sm font-black' 
                             : 'text-[#64748b] hover:text-[#cbd5e1]'
                         }`}
                         style={isActive ? { backgroundColor: 'var(--theme-badge-bg, #0284c7)' } : undefined}
-                        title={`${count} Tracks`}
+                        title={`${count} Channels Total`}
                       >
                         {count}
                       </button>
@@ -1205,6 +1363,53 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
               </div>
             );
           })()}
+
+          <div className="h-4 w-[1px] bg-[#1a2636]" />
+
+          {/* STEP JUMP (Interval for note entry cursor movement) (BUG-07) */}
+          <div className="flex items-center gap-1 sm:gap-1.5" title="Step Jump (Rows to advance after note entry. Hotkey: Ctrl+0..8)">
+            <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#64748b]">STEP</span>
+            <div className="flex items-center rounded bg-[#0e1520]/90 border border-[#1c2738] overflow-hidden p-0.5 gap-0.5">
+              {[0, 1, 2, 3, 4, 8].map((s) => {
+                const isActive = currentStepJump === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStepJump(s)}
+                    className={`px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-bold rounded-[3px] transition-all cursor-pointer ${
+                      isActive 
+                        ? 'bg-[#38bdf8] text-[#080d14] font-black shadow-sm' 
+                        : 'text-[#64748b] hover:text-[#cbd5e1]'
+                    }`}
+                    title={`Step Jump ${s} ${s === 0 ? '(Stay on row)' : `(Jump ${s} lines)`} [Ctrl+${s}]`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="h-4 w-[1px] bg-[#1a2636]" />
+
+          {/* ACTIVE TRACK INDICATOR (Synchronized with cursorChannel) (BUG-02) */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#090e15] border border-white/5 font-mono text-[10px]">
+            <span className="text-[#64748b]">ACTIVE:</span>
+            <span className="font-bold text-[#38bdf8]">TRACK {(cursorChannel + 1).toString().padStart(2, '0')}</span>
+          </div>
+
+          {/* Quick Clear Solos & Mutes button if any track is soloed or muted (BUG-06) */}
+          {trackStates.some((t) => t.isSoloed || t.isMuted) && (
+            <button
+              type="button"
+              onClick={() => audioEngine.clearChannelMutesAndSolos()}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-rose-950/60 hover:bg-rose-900/90 text-rose-300 hover:text-white border border-rose-500/50 cursor-pointer transition-all shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-pulse"
+              title="Clear all active Solo and Mute states across all tracks"
+            >
+              <span>UNMUTE ALL</span>
+            </button>
+          )}
         </div>
 
         {/* Right: PATTERN ACTIONS & TRACK BANK CONTROLS */}
@@ -1279,18 +1484,28 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
       <div className="flex-1 min-h-0 overflow-hidden flex flex-row relative">
         {/* 1. LEFT PINNED STEP NUMBER & POS/LIN COLUMN (Permanently visible on left, never scrolls horizontally) */}
         <div className="w-[52px] min-w-[52px] shrink-0 flex flex-col border-r border-white/10 bg-[#070b10] z-30 shadow-[2px_0_8px_rgba(0,0,0,0.5)]">
-          {/* Top POS & LIN Header */}
+          {/* Top PAT, POS & LIN Header */}
           <div 
-            className="h-[48px] min-h-[48px] max-h-[48px] border-b border-white/10 bg-[#06090e] flex flex-col justify-center items-center py-1 px-1.5 select-none shrink-0"
-            title="Current Position (Order Index) & Line"
+            className="h-[48px] min-h-[48px] max-h-[48px] border-b border-white/10 bg-[#06090e] flex flex-col justify-between py-1 px-1.5 select-none shrink-0"
+            title={`Pattern ${pattern.id.toString().padStart(2, '0')} | Song Position ${currentOrderIndex.toString().padStart(2, '0')} | Line ${currentLine.toString().padStart(2, '0')}`}
           >
             <div className="flex items-center justify-between w-full leading-none">
-              <span className="text-[8px] font-bold text-[#64748b] font-mono">POS</span>
-              <span className="text-[10px] font-bold font-mono tabular-nums" style={{ color: 'var(--theme-accent, #38bdf8)' }}>{currentOrderIndex.toString().padStart(2, '0')}</span>
+              <span className="text-[7.5px] font-bold font-mono" style={{ color: 'var(--theme-accent, #38bdf8)' }}>PAT</span>
+              <span className="text-[9.5px] font-black font-mono tabular-nums" style={{ color: 'var(--theme-accent, #38bdf8)' }}>
+                {pattern.id.toString().padStart(2, '0')}
+              </span>
             </div>
-            <div className="flex items-center justify-between w-full leading-none mt-1">
-              <span className="text-[8px] font-bold text-[#64748b] font-mono">LIN</span>
-              <span className="text-[10px] font-bold font-mono tabular-nums" style={{ color: 'var(--theme-accent, #38bdf8)' }}>{currentLine.toString().padStart(2, '0')}</span>
+            <div className="flex items-center justify-between w-full leading-none">
+              <span className="text-[7.5px] font-bold text-[#64748b] font-mono">POS</span>
+              <span className="text-[9.5px] font-bold font-mono tabular-nums text-slate-300">
+                {currentOrderIndex.toString().padStart(2, '0')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between w-full leading-none">
+              <span className="text-[7.5px] font-bold text-[#64748b] font-mono">LIN</span>
+              <span className="text-[9.5px] font-bold font-mono tabular-nums text-slate-300">
+                {currentLine.toString().padStart(2, '0')}
+              </span>
             </div>
           </div>
 
@@ -1385,9 +1600,9 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
             >
               {Array.from({ length: channelsCount }).map((_, i) => {
                 const isSelected = selectedTracks.includes(i);
-                const isMuted = mutedChannels.includes(i);
-                const isSoloed = soloedChannels.includes(i);
-                const hasSolo = soloedChannels.length > 0;
+                const isMuted = trackStates[i]?.isMuted || false;
+                const isSoloed = trackStates[i]?.isSoloed || false;
+                const hasSolo = trackStates.some((t) => t.isSoloed);
                 const isEffectiveMuted = hasSolo ? !isSoloed : isMuted;
                 const isCursorOnTrack = cursorChannel === i;
 
@@ -1400,9 +1615,9 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
                     }}
                     className={`relative flex flex-col justify-between py-1.5 px-2 cursor-pointer select-none transition-colors min-w-0 overflow-hidden ${
                       isSelected
-                        ? 'bg-[#0f2438] text-white'
+                        ? 'bg-[#0f2438] text-white ring-1 ring-[#38bdf8]/40'
                         : isCursorOnTrack
-                          ? 'bg-[#0b1622] text-[#f8fafc]'
+                          ? 'bg-[#0d1c2d] text-[#f8fafc] ring-1 ring-sky-400/20'
                           : isEffectiveMuted
                             ? 'bg-[#06090e]/90 text-[#475569] opacity-70'
                             : selectedTracks.length > 0
@@ -1415,15 +1630,17 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
                         ? `Track ${i + 1} Selected (Click to Deselect)`
                         : isEffectiveMuted
                           ? `Track ${i + 1} (Muted in playback)`
-                          : `Track ${i + 1} (Click to Select / Set Active)`
+                          : isCursorOnTrack
+                            ? `Track ${i + 1} (Active Cursor Track)`
+                            : `Track ${i + 1} (Click to Select / Set Active)`
                     }
                   >
-                    {/* Top Glowing Indicator when Selected or Focused */}
-                    {isSelected && (
+                    {/* Top Glowing Indicator when Selected or Cursor Active */}
+                    {(isSelected || isCursorOnTrack) && (
                       <div 
                         className="absolute top-0 left-0 right-0 h-[2px]"
                         style={{
-                          backgroundColor: 'var(--theme-accent, #38bdf8)',
+                          backgroundColor: isSelected ? 'var(--theme-accent, #38bdf8)' : '#38bdf8',
                           boxShadow: '0 0 8px var(--theme-accent, #38bdf8)',
                         }}
                       />
@@ -1553,8 +1770,9 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
                       cursorField={cursorField}
                       isEditMode={isEditMode}
                       selectedTracks={selectedTracks}
-                      mutedChannels={mutedChannels}
-                      soloedChannels={soloedChannels}
+                      mutedChannels={trackStates.map((t, idx) => t.isMuted ? idx : -1).filter((idx) => idx !== -1)}
+                      soloedChannels={trackStates.map((t, idx) => t.isSoloed ? idx : -1).filter((idx) => idx !== -1)}
+                      numberBase={numberBase}
                       onCellClick={handleCellClick}
                     />
                   );

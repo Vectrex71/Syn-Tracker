@@ -75,6 +75,7 @@ interface SampleManagerProps {
   keyboardLayout?: KeyboardLayout;
   activeChipSystem?: RetroChipSystem | null;
   isFxRackOpen?: boolean;
+  numberBase?: 'hex' | 'dec';
   onToggleFxRack?: () => void;
   onKeyboardLayoutChange?: (layout: KeyboardLayout) => void;
   onSelectSample: (index: number) => void;
@@ -93,6 +94,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
   keyboardLayout,
   activeChipSystem,
   isFxRackOpen,
+  numberBase = 'hex',
   onToggleFxRack,
   onKeyboardLayoutChange,
   onSelectSample,
@@ -111,6 +113,53 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'editor' | 'adsr' | 'tuning'>('editor');
   const [isVaultOpen, setIsVaultOpen] = useState(false);
+
+  // Cached theme color to prevent layout thrashing on every preview frame (BUG-09)
+  const themeAccentRef = useRef<string>('#38bdf8');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      themeAccentRef.current = getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#38bdf8';
+    }
+  }, []);
+
+  // Playhead preview animation state
+  const [previewProgress, setPreviewProgress] = useState<number | null>(null);
+  const previewRafRef = useRef<number | null>(null);
+  const previewStartTimeRef = useRef<number>(0);
+  const previewDurationRef = useRef<number>(0);
+
+  const handlePlayPreview = useCallback((note: number, sample: TrackerSample) => {
+    onPlayPreview(note, sample);
+    if (sample.buffer) {
+      if (previewRafRef.current) {
+        cancelAnimationFrame(previewRafRef.current);
+      }
+      const dur = sample.buffer.duration;
+      previewDurationRef.current = dur;
+      previewStartTimeRef.current = performance.now();
+      setPreviewProgress(0);
+
+      const updatePlayhead = () => {
+        const elapsed = (performance.now() - previewStartTimeRef.current) / 1000;
+        if (elapsed < previewDurationRef.current) {
+          setPreviewProgress(elapsed / previewDurationRef.current);
+          previewRafRef.current = requestAnimationFrame(updatePlayhead);
+        } else {
+          setPreviewProgress(null);
+          previewRafRef.current = null;
+        }
+      };
+      previewRafRef.current = requestAnimationFrame(updatePlayhead);
+    }
+  }, [onPlayPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (previewRafRef.current) {
+        cancelAnimationFrame(previewRafRef.current);
+      }
+    };
+  }, []);
 
   // Safely get or resume an AudioContext
   const getActiveAudioContext = (): AudioContext | null => {
@@ -137,8 +186,9 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
     return null;
   };
 
-  // Draw Sample Waveform with Loop Points & Selection
+  // Draw Sample Waveform with Loop Points & Selection (BUG-09: Optimized)
   useEffect(() => {
+    if (activeTab !== 'editor') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -171,7 +221,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
       const data = buffer.getChannelData(0);
       const step = Math.ceil(data.length / width);
       
-      const themeAccent = getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#38bdf8';
+      const themeAccent = themeAccentRef.current || '#38bdf8';
       ctx.strokeStyle = themeAccent;
       ctx.lineWidth = 1.2;
       ctx.beginPath();
@@ -231,8 +281,33 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.lineTo(loopEndPct * width, height);
         ctx.stroke();
       }
+
+      // Draw Playhead cursor during preview (BUG-11)
+      if (previewProgress !== null && buffer.length > 0) {
+        const playheadX = Math.max(0, Math.min(width, previewProgress * width));
+        ctx.save();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(playheadX, 0);
+        ctx.lineTo(playheadX, height);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Top triangle cap
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.moveTo(playheadX - 4, 0);
+        ctx.lineTo(playheadX + 4, 0);
+        ctx.lineTo(playheadX, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
     }
-  }, [activeSample, selectionRange]);
+  }, [activeSample, selectionRange, previewProgress, activeTab]);
 
   // Zero-crossing snap finder
   const findZeroCrossing = useCallback((buffer: AudioBuffer, targetSampleIdx: number, direction: 'forward' | 'backward' | 'nearest' = 'nearest') => {
@@ -657,6 +732,9 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
           const isSelected = index === selectedSampleIndex;
           const isEmpty = !sample.name || sample.name === '' || sample.name === 'Empty';
           const hasAudio = !!sample.buffer;
+          const slotDisplay = numberBase === 'dec'
+            ? (index + 1).toString(10).padStart(2, '0')
+            : (index + 1).toString(16).toUpperCase().padStart(2, '0');
 
           return (
             <button
@@ -665,7 +743,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
               onClick={() => {
                 onSelectSample(index);
                 if (hasAudio) {
-                  onPlayPreview(sample.baseNote || 36, sample);
+                  handlePlayPreview(sample.baseNote || 36, sample);
                 } else if (isEmpty) {
                   if (!activeChipSystem || activeChipSystem === 'amiga') {
                     setTimeout(() => {
@@ -676,7 +754,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                   }
                 }
               }}
-              title={sample.name ? `Slot ${index.toString().padStart(2, '0')}: ${sample.name}` : `Slot ${index.toString().padStart(2, '0')} (Empty - Click to Load)`}
+              title={sample.name ? `Slot ${slotDisplay}: ${sample.name}` : `Slot ${slotDisplay} (Empty - Click to Load)`}
               className={`px-2 py-1 rounded-lg text-left flex flex-col justify-between cursor-pointer h-[40px] relative overflow-hidden transition-all duration-100 aqua-gloss ${
                 isSelected 
                   ? 'aqua-theme text-white ring-1 ring-white/30 shadow-md' 
@@ -685,7 +763,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
             >
               <div className="flex items-center justify-between w-full leading-none font-mono">
                 <span className={`text-[10px] font-bold ${isSelected ? 'text-white' : 'text-[#7e8fa6]'}`}>
-                  {index.toString().padStart(2, '0')}
+                  {slotDisplay}
                 </span>
                 {hasAudio && (
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.95)] animate-pulse" />
@@ -802,7 +880,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
               </button>
             )}
             <button
-              onClick={() => onPlayPreview(activeSample.baseNote || 36, activeSample)}
+              onClick={() => handlePlayPreview(activeSample.baseNote || 36, activeSample)}
               className="h-6 px-2 text-[10.5px] font-bold text-white rounded cursor-pointer aqua-gloss aqua-theme flex items-center gap-1 shrink-0 shadow-sm"
               title="Preview Note (plays sample with ADSR, volume & pitch)"
             >
@@ -822,7 +900,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                   height={75}
                   onMouseDown={handleCanvasMouseDown}
                   onMouseMove={handleCanvasMouseMove}
-                  onDoubleClick={() => onPlayPreview(activeSample.baseNote || 36, activeSample)}
+                  onDoubleClick={() => handlePlayPreview(activeSample.baseNote || 36, activeSample)}
                   className="w-full h-[75px] block cursor-crosshair rounded-lg"
                   title="Click & Drag to select region. Double click to preview."
                 />
