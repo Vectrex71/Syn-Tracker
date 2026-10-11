@@ -192,6 +192,11 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
         return res.json();
       })
       .then((data: STDiskInfo[]) => {
+        data.sort((a, b) => {
+          const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
+          const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
+          return numA - numB;
+        });
         setManifest(data);
         if (data.length > 0 && !data.find((d) => d.id === selectedDiskId)) {
           setSelectedDiskId(data[0].id);
