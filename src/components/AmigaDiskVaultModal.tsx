@@ -155,6 +155,12 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
   const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const modalContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // Animated Playhead cursor state
+  const [playheadProgress, setPlayheadProgress] = useState<number | null>(null);
+  const playheadRafRef = useRef<number | null>(null);
+  const playheadStartTimeRef = useRef<number>(0);
+  const playheadDurationRef = useRef<number>(0);
+
   // Sync layout if prop changes
   useEffect(() => {
     if (initialLayout) setCurrentLayout(initialLayout);
@@ -227,6 +233,11 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
       } catch {}
       activeSourceRef.current = null;
     }
+    if (playheadRafRef.current) {
+      cancelAnimationFrame(playheadRafRef.current);
+      playheadRafRef.current = null;
+    }
+    setPlayheadProgress(null);
     setActivePlayingSampleName(null);
     setPressedMidiNote(null);
   }, []);
@@ -339,8 +350,35 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
           activeSourceRef.current = null;
           setActivePlayingSampleName(null);
           setPressedMidiNote(null);
+          if (playheadRafRef.current) {
+            cancelAnimationFrame(playheadRafRef.current);
+            playheadRafRef.current = null;
+          }
+          setPlayheadProgress(null);
         }
       };
+
+      if (playheadRafRef.current) {
+        cancelAnimationFrame(playheadRafRef.current);
+        playheadRafRef.current = null;
+      }
+
+      const durSec = buffer.duration / Math.max(0.01, semitoneRatio);
+      playheadDurationRef.current = durSec;
+      playheadStartTimeRef.current = performance.now();
+      setPlayheadProgress(0);
+
+      const updatePlayhead = () => {
+        const elapsed = (performance.now() - playheadStartTimeRef.current) / 1000;
+        if (elapsed < playheadDurationRef.current) {
+          setPlayheadProgress(Math.min(1, Math.max(0, elapsed / playheadDurationRef.current)));
+          playheadRafRef.current = requestAnimationFrame(updatePlayhead);
+        } else {
+          setPlayheadProgress(null);
+          playheadRafRef.current = null;
+        }
+      };
+      playheadRafRef.current = requestAnimationFrame(updatePlayhead);
 
       activeSourceRef.current = src;
       src.start(0);
@@ -392,8 +430,36 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
         ctx.lineTo(i, y2);
       }
       ctx.stroke();
+
+      // Draw Playhead cursor line (always visible whenever playing or auditioned)
+      const isAuditioning = playheadProgress !== null;
+      const progressVal = isAuditioning ? playheadProgress : 0;
+      const playheadX = Math.max(0, Math.min(width, progressVal * width));
+
+      ctx.save();
+      ctx.strokeStyle = isAuditioning ? '#fbbf24' : '#38bdf8';
+      ctx.lineWidth = isAuditioning ? 2 : 1.5;
+      if (isAuditioning) {
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 6;
+      }
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, height);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Playhead top marker
+      ctx.fillStyle = isAuditioning ? '#fbbf24' : '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(playheadX - 3, 0);
+      ctx.lineTo(playheadX + 3, 0);
+      ctx.lineTo(playheadX, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     }
-  }, [previewAudioBuffer]);
+  }, [previewAudioBuffer, playheadProgress]);
 
   // Load single sample into specified slot
   const handleLoadSingle = async (diskId: string, sampleName: string) => {
@@ -860,8 +926,13 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
                   ref={waveformCanvasRef}
                   width={140}
                   height={24}
-                  className="rounded border border-sky-500/20 bg-[#060a12] shadow-inner"
-                  title="Audition Waveform Visualizer"
+                  onClick={() => {
+                    if (loadedAudition) {
+                      playPreview(loadedAudition.diskId, loadedAudition.sampleName, 12 * (activeAuditionOctave + 1));
+                    }
+                  }}
+                  className="rounded border border-sky-500/20 bg-[#060a12] shadow-inner cursor-pointer hover:border-sky-400 transition-colors"
+                  title="Click to replay audition with playhead monitor"
                 />
                 <span className="text-[10px] text-slate-500 hidden sm:inline">
                   Double-click to Assign

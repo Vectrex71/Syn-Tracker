@@ -133,16 +133,32 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
     if (sample.buffer) {
       if (previewRafRef.current) {
         cancelAnimationFrame(previewRafRef.current);
+        previewRafRef.current = null;
       }
-      const dur = sample.buffer.duration;
-      previewDurationRef.current = dur;
+      const pitchRatio = Math.pow(2, (note - (sample.baseNote || 36)) / 12);
+      const effectiveRate = Math.max(0.05, pitchRatio);
+      const rawDur = sample.buffer.duration / effectiveRate;
+      previewDurationRef.current = sample.loopEnabled ? Math.max(rawDur, 1.5) : rawDur;
       previewStartTimeRef.current = performance.now();
       setPreviewProgress(0);
 
       const updatePlayhead = () => {
         const elapsed = (performance.now() - previewStartTimeRef.current) / 1000;
         if (elapsed < previewDurationRef.current) {
-          setPreviewProgress(elapsed / previewDurationRef.current);
+          if (sample.loopEnabled && sample.buffer && sample.loopEnd > sample.loopStart) {
+            const sRate = sample.buffer.sampleRate;
+            const lStartSec = (sample.loopStart || 0) / sRate / effectiveRate;
+            const lEndSec = (sample.loopEnd || sample.buffer.length) / sRate / effectiveRate;
+            const loopLenSec = Math.max(0.01, lEndSec - lStartSec);
+            let curSec = elapsed;
+            if (curSec > lStartSec) {
+              curSec = lStartSec + ((curSec - lStartSec) % loopLenSec);
+            }
+            const prog = curSec / rawDur;
+            setPreviewProgress(Math.min(1, Math.max(0, prog)));
+          } else {
+            setPreviewProgress(Math.min(1, elapsed / previewDurationRef.current));
+          }
           previewRafRef.current = requestAnimationFrame(updatePlayhead);
         } else {
           setPreviewProgress(null);
@@ -282,14 +298,21 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.stroke();
       }
 
-      // Draw Playhead cursor during preview (BUG-11)
-      if (previewProgress !== null && buffer.length > 0) {
-        const playheadX = Math.max(0, Math.min(width, previewProgress * width));
+      // Draw Playhead cursor (always visible when audio loaded, dynamically moving during audition)
+      if (buffer && buffer.length > 0) {
+        const isAuditioning = previewProgress !== null;
+        const prog = isAuditioning
+          ? previewProgress
+          : (selectionRange ? Math.min(selectionRange.start, selectionRange.end) / buffer.length : 0);
+        const playheadX = Math.max(0, Math.min(width, prog * width));
+
         ctx.save();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
-        ctx.shadowColor = '#38bdf8';
-        ctx.shadowBlur = 6;
+        ctx.strokeStyle = isAuditioning ? '#fbbf24' : '#38bdf8';
+        ctx.lineWidth = isAuditioning ? 2 : 1.5;
+        if (isAuditioning) {
+          ctx.shadowColor = '#fbbf24';
+          ctx.shadowBlur = 8;
+        }
         ctx.beginPath();
         ctx.moveTo(playheadX, 0);
         ctx.lineTo(playheadX, height);
@@ -297,7 +320,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         ctx.shadowBlur = 0;
 
         // Top triangle cap
-        ctx.fillStyle = '#38bdf8';
+        ctx.fillStyle = isAuditioning ? '#fbbf24' : '#38bdf8';
         ctx.beginPath();
         ctx.moveTo(playheadX - 4, 0);
         ctx.lineTo(playheadX + 4, 0);
@@ -356,6 +379,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
     const sampleIdx = Math.floor(clickPct * activeSample.buffer.length);
 
     setSelectionRange({ start: sampleIdx, end: sampleIdx });
+    handlePlayPreview(activeSample.baseNote || 36, activeSample);
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -386,7 +410,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
       };
 
       onUpdateSample(selectedSampleIndex, updatedSample);
-      onPlayPreview(updatedSample.baseNote || 36, updatedSample);
+      handlePlayPreview(updatedSample.baseNote || 36, updatedSample);
     } catch (err) {
       console.warn('Error saving edited audio:', err);
       onUpdateSample(selectedSampleIndex, { buffer: newBuf, ...extraProps });

@@ -443,7 +443,12 @@ export const SynEditorModal: React.FC<SynEditorModalProps> = ({
     source.onended = () => {
       if (activeSourceRef.current === source) {
         setIsPlaying(false);
-        setPlayheadFrame(0);
+        activeSourceRef.current = null;
+        if (playbackAnimFrameRef.current) {
+          cancelAnimationFrame(playbackAnimFrameRef.current);
+          playbackAnimFrameRef.current = null;
+        }
+        setPlayheadFrame(selection ? Math.min(selection.start, selection.end) : 0);
       }
     };
 
@@ -454,8 +459,13 @@ export const SynEditorModal: React.FC<SynEditorModalProps> = ({
       const curFrame = Math.floor(currentSec * currentBuffer.sampleRate);
 
       if (curFrame >= currentBuffer.length && !isLoopPlayback) {
-        setPlayheadFrame(0);
         setIsPlaying(false);
+        activeSourceRef.current = null;
+        if (playbackAnimFrameRef.current) {
+          cancelAnimationFrame(playbackAnimFrameRef.current);
+          playbackAnimFrameRef.current = null;
+        }
+        setPlayheadFrame(0);
         return;
       }
 
@@ -501,12 +511,52 @@ export const SynEditorModal: React.FC<SynEditorModalProps> = ({
       keyLabel,
       playbackRate: rate,
     });
+
+    // Trigger animated playhead during live audition note
+    if (playbackAnimFrameRef.current) {
+      cancelAnimationFrame(playbackAnimFrameRef.current);
+      playbackAnimFrameRef.current = null;
+    }
+    setIsPlaying(true);
+    playbackStartTimeRef.current = performance.now();
+    playbackStartOffsetRef.current = 0;
+    const effectiveRate = Math.max(0.05, rate);
+    const noteDuration = loopEnabled ? 2.5 : (currentBuffer.duration / effectiveRate);
+
+    const updateAuditionPlayhead = () => {
+      const elapsed = (performance.now() - playbackStartTimeRef.current) / 1000;
+      if (elapsed < noteDuration) {
+        let curSec = elapsed * effectiveRate;
+        if (loopEnabled && loopEnd > loopStart) {
+          const lStartSec = loopStart / currentBuffer.sampleRate;
+          const lEndSec = loopEnd / currentBuffer.sampleRate;
+          const lLenSec = lEndSec - lStartSec;
+          if (curSec > lStartSec && lLenSec > 0) {
+            curSec = lStartSec + ((curSec - lStartSec) % lLenSec);
+          }
+        }
+        const curFrame = Math.floor(curSec * currentBuffer.sampleRate);
+        setPlayheadFrame(Math.min(currentBuffer.length, curFrame));
+        playbackAnimFrameRef.current = requestAnimationFrame(updateAuditionPlayhead);
+      } else {
+        setIsPlaying(false);
+        setPlayheadFrame(0);
+        playbackAnimFrameRef.current = null;
+      }
+    };
+    playbackAnimFrameRef.current = requestAnimationFrame(updateAuditionPlayhead);
   }, [currentBuffer, samples, activeSlot, sampleName, loopEnabled, loopStart, loopEnd]);
 
   const handleStopAudition = useCallback(() => {
     audioEngine.stopPreviewNote();
     setActiveAuditionNote(null);
     activeAuditionKeyRef.current = null;
+    if (playbackAnimFrameRef.current) {
+      cancelAnimationFrame(playbackAnimFrameRef.current);
+      playbackAnimFrameRef.current = null;
+    }
+    setIsPlaying(false);
+    setPlayheadFrame(0);
   }, []);
 
   // VU Meter Loop
@@ -1913,6 +1963,7 @@ export const SynEditorModal: React.FC<SynEditorModalProps> = ({
                 onStartPlayback={startPlayback}
                 onStopPlayback={stopPlayback}
                 playheadFrame={playheadFrame}
+                setPlayheadFrame={setPlayheadFrame}
                 meterLevels={meterLevels}
                 viewMode={viewMode}
                 setViewMode={setViewMode}

@@ -41,6 +41,7 @@ interface SynEditorWaveformProps {
   onStartPlayback: () => void;
   onStopPlayback: () => void;
   playheadFrame: number;
+  setPlayheadFrame?: (val: number) => void;
   meterLevels: { leftPeak: number; rightPeak: number; isClipping: boolean };
   viewMode: 'waveform' | 'stereo';
   setViewMode: (mode: 'waveform' | 'stereo') => void;
@@ -94,6 +95,7 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
   onStartPlayback,
   onStopPlayback,
   playheadFrame,
+  setPlayheadFrame,
   meterLevels,
   viewMode,
   setViewMode,
@@ -422,23 +424,31 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
       }
     }
 
-    // Draw Playhead Cursor
-    if (isPlaying && playheadFrame >= startSample && playheadFrame <= endSample) {
+    // Draw Playhead Cursor (always visible when audio loaded, glowing when playing)
+    if (currentBuffer && playheadFrame >= startSample && playheadFrame <= endSample) {
       const playheadX = ((playheadFrame - startSample) / sampleWindow) * width;
-      ctx.strokeStyle = '#fbbf24';
-      ctx.lineWidth = 2;
+      ctx.save();
+      ctx.strokeStyle = isPlaying ? '#fbbf24' : '#38bdf8';
+      ctx.lineWidth = isPlaying ? 2 : 1.5;
+      if (isPlaying) {
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 8;
+      }
       ctx.beginPath();
       ctx.moveTo(playheadX, 0);
       ctx.lineTo(playheadX, height);
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
-      ctx.fillStyle = '#fbbf24';
+      // Top triangle cap
+      ctx.fillStyle = isPlaying ? '#fbbf24' : '#38bdf8';
       ctx.beginPath();
       ctx.moveTo(playheadX - 5, 0);
       ctx.lineTo(playheadX + 5, 0);
       ctx.lineTo(playheadX, 8);
       ctx.closePath();
       ctx.fill();
+      ctx.restore();
     }
   }, [currentBuffer, selection, loopEnabled, loopStart, loopEnd, isPlaying, playheadFrame, viewMode, zoom, scrollOffset]);
 
@@ -459,6 +469,9 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
     isMouseDownRef.current = true;
     dragModeRef.current = 'select';
     setSelection({ start: clickSample, end: clickSample });
+    if (setPlayheadFrame) {
+      setPlayheadFrame(clickSample);
+    }
   };
 
   // Attach global mousemove & mouseup so dragging all the way to the edges/outside canvas never loses or drops the selection
@@ -482,6 +495,9 @@ export const SynEditorWaveform: React.FC<SynEditorWaveformProps> = ({
       currentSample = Math.max(0, Math.min(totalSamples, currentSample));
 
       setSelection((prev) => (prev ? { ...prev, end: currentSample } : { start: currentSample, end: currentSample }));
+      if (setPlayheadFrame) {
+        setPlayheadFrame(currentSample);
+      }
     };
 
     const handleGlobalMouseUp = () => {
