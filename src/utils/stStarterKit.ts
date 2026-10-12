@@ -92,7 +92,12 @@ export async function loadStStarterKit(audioCtx: AudioContext): Promise<TrackerS
       let loopEnd = 0;
       let loopEnabled = false;
 
+      const PERMANENT_COMMIT = '8ed6437f119f8660b6ef065cbf383e94468dc1eb';
       const candidateUrls = [
+        `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@main/public/amiga_st/samples/ST-01/${encodeURIComponent(def.file)}`,
+        `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@${PERMANENT_COMMIT}/public/amiga_st/samples/ST-01/${encodeURIComponent(def.file)}`,
+        `https://raw.githubusercontent.com/Vectrex71/Syn-Tracker/main/public/amiga_st/samples/ST-01/${encodeURIComponent(def.file)}`,
+        `https://raw.githubusercontent.com/Vectrex71/Syn-Tracker/${PERMANENT_COMMIT}/public/amiga_st/samples/ST-01/${encodeURIComponent(def.file)}`,
         `/amiga_st/samples/ST-01/${def.file}`,
         `/samples/st_disks/ST-01/${def.file}`,
         `/dist/amiga_st/samples/ST-01/${def.file}`,

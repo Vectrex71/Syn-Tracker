@@ -18,36 +18,40 @@ if (fs.existsSync(disksDir)) {
       return numA - numB;
     });
 
-  const manifest = [];
-  for (const disk of disks) {
-    const diskPath = path.join(disksDir, disk);
-    const files = fs.readdirSync(diskPath);
-    const samples = files
-      .filter((f) => {
-        const lower = f.toLowerCase();
-        return (
-          lower.endsWith('.aiff') ||
-          lower.endsWith('.aif') ||
-          lower.endsWith('.wav') ||
-          lower.endsWith('.mp3') ||
-          lower.endsWith('.ogg') ||
-          lower.endsWith('.iff') ||
-          lower.endsWith('.raw')
-        );
-      })
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  if (disks.length > 0) {
+    const manifest = [];
+    for (const disk of disks) {
+      const diskPath = path.join(disksDir, disk);
+      const files = fs.readdirSync(diskPath);
+      const samples = files
+        .filter((f) => {
+          const lower = f.toLowerCase();
+          return (
+            lower.endsWith('.aiff') ||
+            lower.endsWith('.aif') ||
+            lower.endsWith('.wav') ||
+            lower.endsWith('.mp3') ||
+            lower.endsWith('.ogg') ||
+            lower.endsWith('.iff') ||
+            lower.endsWith('.raw')
+          );
+        })
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
-    manifest.push({
-      id: disk,
-      name: disk,
-      count: samples.length,
-      samples: samples,
-    });
+      manifest.push({
+        id: disk,
+        name: disk,
+        count: samples.length,
+        samples: samples,
+      });
+    }
+
+    const manifestPath = path.join(disksDir, 'manifest.json');
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    console.log(`Generated manifest with ${manifest.length} disks and ${manifest.reduce((acc, d) => acc + d.count, 0)} samples.`);
+  } else {
+    console.log(`Preserving complete manifest with CDN links (${disksDir}).`);
   }
-
-  const manifestPath = path.join(disksDir, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-  console.log(`Generated manifest with ${manifest.length} disks and ${manifest.reduce((acc, d) => acc + d.count, 0)} samples.`);
 } else {
   console.warn(`Directory not found: ${disksDir}`);
 }

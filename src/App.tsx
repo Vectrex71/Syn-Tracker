@@ -604,8 +604,20 @@ export default function App() {
   // Keyboard shortcuts (SPACE = Play/Stop, ESC = Toggle Edit/Record mode, CTRL+Z/CTRL+Y = Undo/Redo, CTRL+S = Save Project)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      // Don't intercept shortcuts when editing inputs or when specialized modal editors (SYN-Editor, Visualizer Studio) are active
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'SELECT' || document.activeElement?.tagName === 'TEXTAREA') {
+      // Don't intercept shortcuts when typing in text inputs or when specialized modal editors are active
+      const target = (e.target || document.activeElement) as HTMLElement | null;
+      const isTextInput =
+        target &&
+        (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          (target.tagName === 'INPUT' &&
+            !['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'file'].includes(
+              ((target as HTMLInputElement).type || '').toLowerCase()
+            )));
+
+      if (isTextInput) {
+        if (e.key === 'Escape') target.blur();
         return;
       }
 

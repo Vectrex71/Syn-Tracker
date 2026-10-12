@@ -179,30 +179,38 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
 
     setLoadingManifest(true);
     const cacheBuster = `?t=${Date.now()}`;
-    fetch(`/amiga_st/samples/manifest.json${cacheBuster}`, { cache: 'no-store' })
-      .then((res) => {
-        if (!res.ok) {
-          setBasePath('/samples/st_disks');
-          return fetch(`/samples/st_disks/manifest.json${cacheBuster}`, { cache: 'no-store' });
-        }
-        setBasePath('/amiga_st/samples');
-        return res;
-      })
-      .then((res) => {
-        if (!res.ok) throw new Error('Could not load ST disks manifest');
-        return res.json();
-      })
-      .then((data: STDiskInfo[]) => {
-        data.sort((a, b) => {
-          const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
-          const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
-          return numA - numB;
-        });
-        setManifest(data);
-        if (data.length > 0 && !data.find((d) => d.id === selectedDiskId)) {
-          setSelectedDiskId(data[0].id);
-        }
-      })
+    const manifestCandidates = [
+      `/amiga_st/samples/manifest.json${cacheBuster}`,
+      `/samples/st_disks/manifest.json${cacheBuster}`,
+      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@main/public/amiga_st/samples/manifest.json`,
+      `https://raw.githubusercontent.com/Vectrex71/Syn-Tracker/main/public/amiga_st/samples/manifest.json`,
+    ];
+
+    const tryFetchManifest = async () => {
+      for (const url of manifestCandidates) {
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (res.ok) {
+            const data: STDiskInfo[] = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              data.sort((a, b) => {
+                const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
+                const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
+                return numA - numB;
+              });
+              setManifest(data);
+              if (!data.find((d) => d.id === selectedDiskId)) {
+                setSelectedDiskId(data[0].id);
+              }
+              return;
+            }
+          }
+        } catch {}
+      }
+      throw new Error('Could not load ST disks manifest from any source');
+    };
+
+    tryFetchManifest()
       .catch((err) => {
         console.error('Error loading ST disk manifest:', err);
       })
@@ -248,11 +256,21 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
     setPressedMidiNote(null);
   }, []);
 
+  const PERMANENT_COMMIT = '8ed6437f119f8660b6ef065cbf383e94468dc1eb';
+
   // Robust fetch for sample with multiple candidate extensions & paths
   const fetchSampleArrayBuffer = useCallback(async (diskId: string, sampleName: string): Promise<ArrayBuffer> => {
     const trimmed = sampleName.trim();
     const cleanBase = trimmed.replace(/\.(aiff|wav|mp3|pcm|raw|iff)$/i, '');
     const candidateUrls: string[] = [
+      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@main/public/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
+      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@${PERMANENT_COMMIT}/public/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
+      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@main/public/amiga_st/samples/${diskId}/${encodeURIComponent(cleanBase + '.aiff')}`,
+      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@${PERMANENT_COMMIT}/public/amiga_st/samples/${diskId}/${encodeURIComponent(cleanBase + '.aiff')}`,
+      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@main/public/amiga_st/samples/${diskId}/${encodeURIComponent(cleanBase + '.wav')}`,
+      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@${PERMANENT_COMMIT}/public/amiga_st/samples/${diskId}/${encodeURIComponent(cleanBase + '.wav')}`,
+      `https://raw.githubusercontent.com/Vectrex71/Syn-Tracker/main/public/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
+      `https://raw.githubusercontent.com/Vectrex71/Syn-Tracker/${PERMANENT_COMMIT}/public/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
       `${basePath}/${diskId}/${encodeURIComponent(trimmed)}`,
       `${basePath}/${diskId}/${encodeURIComponent(cleanBase + '.aiff')}`,
       `${basePath}/${diskId}/${encodeURIComponent(cleanBase + '.wav')}`,
@@ -263,8 +281,6 @@ export const AmigaDiskVaultModal: React.FC<AmigaDiskVaultModalProps> = ({
       `/samples/st_disks/${diskId}/${encodeURIComponent(trimmed)}`,
       `/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
       `/amiga_st/samples/${diskId}/${encodeURIComponent(cleanBase)}`,
-      `https://cdn.jsdelivr.net/gh/Vectrex71/Syn-Tracker@main/public/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
-      `https://raw.githubusercontent.com/Vectrex71/Syn-Tracker/main/public/amiga_st/samples/${diskId}/${encodeURIComponent(trimmed)}`,
     ];
 
     for (const url of candidateUrls) {

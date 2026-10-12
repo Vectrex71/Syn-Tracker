@@ -703,7 +703,18 @@ export const PatternEditor: React.FC<PatternEditorProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) {
+      const isTextInput =
+        target &&
+        (target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          (target.tagName === 'INPUT' &&
+            !['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'file'].includes(
+              ((target as HTMLInputElement).type || '').toLowerCase()
+            )));
+
+      if (isTextInput) {
+        if (e.key === 'Escape') target.blur();
         return;
       }
 

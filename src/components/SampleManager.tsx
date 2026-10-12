@@ -1039,6 +1039,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                   step={0.005}
                   value={activeSample.attack ?? 0.005}
                   onChange={(e) => onUpdateSample(selectedSampleIndex, { attack: parseFloat(e.target.value) })}
+                  onPointerUp={(e) => e.currentTarget.blur()}
                   className="w-full accent-[#38bdf8] h-1.5 bg-[#141c26] rounded cursor-pointer"
                 />
               </div>
@@ -1056,6 +1057,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                   step={0.01}
                   value={activeSample.decay ?? 0.2}
                   onChange={(e) => onUpdateSample(selectedSampleIndex, { decay: parseFloat(e.target.value) })}
+                  onPointerUp={(e) => e.currentTarget.blur()}
                   className="w-full accent-[#38bdf8] h-1.5 bg-[#141c26] rounded cursor-pointer"
                 />
               </div>
@@ -1073,6 +1075,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                   step={0.05}
                   value={activeSample.sustain ?? 0.8}
                   onChange={(e) => onUpdateSample(selectedSampleIndex, { sustain: parseFloat(e.target.value) })}
+                  onPointerUp={(e) => e.currentTarget.blur()}
                   className="w-full accent-[#38bdf8] h-1.5 bg-[#141c26] rounded cursor-pointer"
                 />
               </div>
@@ -1090,6 +1093,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                   step={0.01}
                   value={activeSample.release ?? 0.15}
                   onChange={(e) => onUpdateSample(selectedSampleIndex, { release: parseFloat(e.target.value) })}
+                  onPointerUp={(e) => e.currentTarget.blur()}
                   className="w-full accent-[#38bdf8] h-1.5 bg-[#141c26] rounded cursor-pointer"
                 />
               </div>
@@ -1117,6 +1121,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                     max={Math.max(1, activeSample.buffer.length - 32)}
                     value={activeSample.loopStart}
                     onChange={(e) => onUpdateSample(selectedSampleIndex, { loopStart: parseInt(e.target.value, 10) })}
+                    onPointerUp={(e) => e.currentTarget.blur()}
                     className="w-full accent-[#38bdf8] h-1.5 bg-[#141c26] rounded cursor-pointer"
                   />
 
@@ -1130,6 +1135,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                     max={activeSample.buffer.length}
                     value={activeSample.loopEnd}
                     onChange={(e) => onUpdateSample(selectedSampleIndex, { loopEnd: parseInt(e.target.value, 10) })}
+                    onPointerUp={(e) => e.currentTarget.blur()}
                     className="w-full accent-[#38bdf8] h-1.5 bg-[#141c26] rounded cursor-pointer"
                   />
                 </div>
@@ -1148,6 +1154,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                   step={1}
                   value={activeSample.finetune || 0}
                   onChange={(e) => onUpdateSample(selectedSampleIndex, { finetune: parseInt(e.target.value, 10) })}
+                  onPointerUp={(e) => e.currentTarget.blur()}
                   className="w-full accent-[#38bdf8] h-1.5 bg-[#141c26] rounded cursor-pointer"
                 />
               </div>
@@ -1179,6 +1186,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                 max={64}
                 value={activeSample.volume}
                 onChange={(e) => onUpdateSample(selectedSampleIndex, { volume: parseInt(e.target.value, 10) })}
+                onPointerUp={(e) => e.currentTarget.blur()}
                 className="w-full h-1.5 bg-[#141c26] rounded cursor-pointer"
               />
             </div>
@@ -1198,6 +1206,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                 step={0.1}
                 value={activeSample.panning}
                 onChange={(e) => onUpdateSample(selectedSampleIndex, { panning: parseFloat(e.target.value) })}
+                onPointerUp={(e) => e.currentTarget.blur()}
                 className="w-full h-1.5 bg-[#141c26] rounded cursor-pointer"
               />
             </div>
